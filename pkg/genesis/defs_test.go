@@ -25,6 +25,12 @@ func TestCreator(t *testing.T) {
 			true,
 			[]g.Word{"bas"},
 		},
+		{
+			"single word",
+			"words: bas bad",
+			true,
+			[]g.Word{"bas", "bad"},
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))

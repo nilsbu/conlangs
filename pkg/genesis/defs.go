@@ -76,16 +76,16 @@ func (c *creator) what(i, n int, opts [][]*nonTerminal, words *[]Word) {
 			return
 		}
 
-		if inc(ids, opts) {
+		if inc(ids, opt) {
 			return
 		}
 	}
 }
 
-func inc(ids []int, opts [][]*nonTerminal) bool {
+func inc(ids []int, opt []*nonTerminal) bool {
 	for i := len(ids) - 1; i >= 0; i-- {
 		ids[i]++
-		if ids[i] == len(opts[i]) {
+		if ids[i] >= len(opt[i].options) {
 			ids[i] = 0
 		} else {
 			return false
