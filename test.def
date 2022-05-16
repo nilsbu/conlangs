@@ -1,4 +1,4 @@
-letters: a e i o u au ai ei ou ia ua io ue t d p b s z m n ng r f v
+letters: a e i o u ə au ai ei ou ia ua io ue t d p b s z m n ng r f v
 C = t d p b s z m n
 X = s p t z b d
 Y = p t s
@@ -9,4 +9,4 @@ D = m n ng
 S = IVD IV
 
 words: SS SSS S SSSS
-reject: mm nn
+filter: mm > m; nn > n; (a|e|i|o|u)m$ > əm; (a|e|i|o|u)n$ > ən

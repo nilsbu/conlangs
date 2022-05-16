@@ -77,6 +77,22 @@ func TestCreatorGet(t *testing.T) {
 			"letters: a b s\n",
 			false, nil, 0,
 		},
+		{
+			"filter",
+			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: na > ma;;b$>p",
+			true,
+			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"}, 8,
+		},
+		{
+			"broken filter 1",
+			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: na;b$>p",
+			false, nil, 0,
+		},
+		{
+			"broken filter 2",
+			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: n(a>e;b$>p",
+			false, nil, 0,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))
@@ -143,6 +159,12 @@ func TestCreatorChoose(t *testing.T) {
 			"reject: ce\nletters: b c a e n\nW = CV na\nC = b c\nV = a e\n\nwords: W",
 			[]int{0, 0, 1, 1, 0, 0, 1, 0},
 			"ca",
+		},
+		{
+			"filter",
+			"letters: a b s x\nfilter:a>x\nwords: bas",
+			[]int{0},
+			"bxs",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {

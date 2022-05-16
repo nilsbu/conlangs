@@ -24,11 +24,17 @@ func NewCreator(def []byte) (Creator, error) {
 type creator struct {
 	nonTerminals map[string]*nonTerminal
 	rejections   []*regexp.Regexp
+	filters      []*filter
 }
 
 type nonTerminal struct {
 	options  [][]*nonTerminal
 	terminal string
+}
+
+type filter struct {
+	regexp *regexp.Regexp
+	new    string
 }
 
 func (nt *nonTerminal) n() int {
@@ -69,7 +75,7 @@ func (nt *nonTerminal) get(i int) string {
 }
 
 func (c *creator) load(def []byte) error {
-
+	// TODO detect cycles
 	lines := strings.Split(string(def), "\n")
 	for i, line := range lines {
 		switch {
@@ -99,6 +105,26 @@ func (c *creator) load(def []byte) error {
 				return fmt.Errorf("in line %v: expect 1 non-terminal before '=' but got '%v'", i, line[:idx])
 			}
 			c.addOptions(c.ensureNT(pre[0]), strings.Fields(line[idx+1:]))
+
+		case hasPrefix("filter:", line):
+			for _, rule := range strings.Split(line[len("filter:"):], ";") {
+				if len(rule) == 0 {
+					continue
+				}
+				idx := strings.Index(rule, ">")
+				if idx == -1 {
+					return fmt.Errorf("rule '%v' doesn't contain '>'", rule)
+				}
+				pre, pos := strings.TrimSpace(rule[:idx]), strings.TrimSpace(rule[idx+1:])
+				if rej, err := regexp.Compile(pre); err != nil {
+					return err
+				} else {
+					c.filters = append(c.filters, &filter{
+						regexp: rej,
+						new:    pos,
+					})
+				}
+			}
 		}
 	}
 
@@ -145,6 +171,7 @@ func (c *creator) N() int {
 
 func (c *creator) Get(i int) Word {
 	word := Word(c.nonTerminals["#words"].get(i))
+	word = c.filter(word)
 	found := false
 	for _, rx := range c.rejections {
 		if rx.MatchString(string(word)) {
@@ -157,12 +184,22 @@ func (c *creator) Get(i int) Word {
 	} else {
 		return ""
 	}
+}
 
+func (c *creator) filter(word Word) Word {
+	for _, filter := range c.filters {
+		idxs := filter.regexp.FindAllStringIndex(string(word), 20)
+		for _, idx := range idxs {
+			word = word[:idx[0]] + Word(filter.new) + word[idx[1]:]
+		}
+	}
+	return word
 }
 
 func (c *creator) Choose(rnd rand.Rand) Word {
 	for { // TODO Break from infinite loop
 		word := Word(c.choose(rnd, c.nonTerminals["#words"]))
+		word = c.filter(word)
 		found := false
 		for _, rx := range c.rejections {
 			if rx.MatchString(string(word)) {
