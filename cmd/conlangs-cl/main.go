@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/nilsbu/conlangs/pkg/genesis"
+	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
 func main() {
@@ -17,11 +17,9 @@ func main() {
 		fmt.Println(err)
 	} else {
 		n, _ := strconv.Atoi(os.Args[1])
-		cnt := creator.N()
-		rand.Seed(time.Now().UnixNano())
+		rnd := rand.Flat(time.Now().UnixNano())
 		for i := 0; i < n; i++ {
-			r := rand.Int() % cnt
-			fmt.Println(creator.Get(r))
+			fmt.Println(creator.Choose(rnd))
 		}
 	}
 }

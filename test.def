@@ -1,6 +1,7 @@
 letters: a e i o u t d p b s z m n ng
-C = t d p b s z m n ng
+C = t d p b s z m n
 V = a e i o u
-S = CV V CVC
+D = m n ng
+S = CVD CV
 
 words: SS

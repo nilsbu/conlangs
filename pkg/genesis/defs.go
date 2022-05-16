@@ -3,11 +3,14 @@ package genesis
 import (
 	"fmt"
 	"strings"
+
+	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
 type Creator interface {
 	N() int
 	Get(i int) Word
+	Choose(rnd rand.Rand) Word
 }
 
 type Word string
@@ -129,4 +132,21 @@ func (c *creator) N() int {
 
 func (c *creator) Get(i int) Word {
 	return Word(c.nonTerminals["$words"].get(i))
+}
+
+func (c *creator) Choose(rnd rand.Rand) Word {
+	return Word(c.choose(rnd, c.nonTerminals["$words"]))
+}
+
+func (c *creator) choose(rnd rand.Rand, nt *nonTerminal) string {
+	if len(nt.options) > 0 {
+		opt := nt.options[rnd.Next(len(nt.options))]
+		var str strings.Builder
+		for _, nt2 := range opt {
+			str.WriteString(c.choose(rnd, nt2))
+		}
+		return str.String()
+	} else {
+		return nt.terminal
+	}
 }

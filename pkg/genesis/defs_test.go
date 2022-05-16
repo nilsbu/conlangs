@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	g "github.com/nilsbu/conlangs/pkg/genesis"
+	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
-func TestCreator(t *testing.T) {
+func TestCreatorGet(t *testing.T) {
 	for _, c := range []struct {
 		name  string
 		defs  string
@@ -78,6 +79,58 @@ func TestCreator(t *testing.T) {
 					if ex != ac {
 						t.Errorf("word %v: expected '%v' but got '%v'", i, ex, ac)
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestCreatorChoose(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		defs    string
+		choices []int
+		word    g.Word
+	}{
+		{
+			"single word",
+			"letters: a b s\nwords: bas",
+			[]int{0},
+			"bas",
+		},
+		{
+			"single word",
+			"letters: a b d s\nwords: bas bad",
+			[]int{1},
+			"bad",
+		},
+		{
+			"define a custom non-terminal",
+			"letters: a b c\nC = b c\nwords: Ca",
+			[]int{0, 1},
+			"ca",
+		},
+		{
+			"with two non-terminals",
+			"letters: a e b c\nC = b c\nV = a e\nwords: CV",
+			[]int{0, 0, 1},
+			"be",
+		},
+		{
+			"stacked non-terminals",
+			"letters: b c a e n\nW = CV na\nC = b c\nV = a e\n\nwords: W",
+			[]int{0, 0, 1, 1},
+			"ce",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			creator, err := g.NewCreator([]byte(c.defs))
+			if err != nil {
+				t.Error("expected no error but got:", err)
+			} else {
+				word := creator.Choose(rand.Cycle(c.choices))
+				if c.word != word {
+					t.Errorf("expected '%v' but got '%v'", c.word, word)
 				}
 			}
 		})
