@@ -1,11 +1,11 @@
-letters: a e i o u ə au ai ei ou ia ua io ue t d p b s z m n ng r f v
+letters: a e i o u ə au ai ei ou ia ua io ue t d p b s z m n ŋ r f v
 C = t d p b s z m n
 X = s p t z b d
 Y = p t s
 Z = b d z
 I = C Xr Yf Zv
 V = i a au e o ou ue ai u ei ia ua io 
-D = m n ng
+D = m n ŋ
 S = IVD IV
 
 words: SS SSS S SSSS

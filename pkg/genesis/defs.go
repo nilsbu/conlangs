@@ -81,8 +81,10 @@ func (c *creator) load(def []byte) error {
 		switch {
 		case hasPrefix("letters:", line):
 			for _, opt := range strings.Fields(line[len("letters:"):]) {
-				nt := c.ensureNT(opt)
-				nt.terminal = opt
+				for _, r := range opt {
+					nt := c.ensureNT(string(r))
+					nt.terminal = string(r)
+				}
 			}
 
 		case hasPrefix("words:", line):
