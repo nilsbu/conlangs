@@ -80,7 +80,7 @@ func (c *creator) load(def []byte) error {
 			}
 
 		case hasPrefix("words:", line):
-			c.addOptions(c.ensureNT("$words"), strings.Fields(line[len("words:"):]))
+			c.addOptions(c.ensureNT("#words"), strings.Fields(line[len("words:"):]))
 
 		case hasPrefix("reject:", line):
 			for _, rx := range strings.Fields(line[len("reject:"):]) {
@@ -102,7 +102,7 @@ func (c *creator) load(def []byte) error {
 		}
 	}
 
-	if _, ok := c.nonTerminals["$words"]; !ok {
+	if _, ok := c.nonTerminals["#words"]; !ok {
 		return fmt.Errorf("def doesn't contain 'words:'")
 	}
 	return nil
@@ -140,11 +140,11 @@ func (c *creator) ensureNT(key string) *nonTerminal {
 }
 
 func (c *creator) N() int {
-	return c.nonTerminals["$words"].n()
+	return c.nonTerminals["#words"].n()
 }
 
 func (c *creator) Get(i int) Word {
-	word := Word(c.nonTerminals["$words"].get(i))
+	word := Word(c.nonTerminals["#words"].get(i))
 	found := false
 	for _, rx := range c.rejections {
 		if rx.MatchString(string(word)) {
@@ -162,7 +162,7 @@ func (c *creator) Get(i int) Word {
 
 func (c *creator) Choose(rnd rand.Rand) Word {
 	for { // TODO Break from infinite loop
-		word := Word(c.choose(rnd, c.nonTerminals["$words"]))
+		word := Word(c.choose(rnd, c.nonTerminals["#words"]))
 		found := false
 		for _, rx := range c.rejections {
 			if rx.MatchString(string(word)) {

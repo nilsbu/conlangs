@@ -72,6 +72,11 @@ func TestCreatorGet(t *testing.T) {
 			"letters: a b s\nwords: bas\nreject: (",
 			false, nil, 0,
 		},
+		{
+			"missing words",
+			"letters: a b s\n",
+			false, nil, 0,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))
