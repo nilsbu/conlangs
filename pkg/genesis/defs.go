@@ -12,9 +12,9 @@ type Creator interface {
 
 type Word string
 
-func NewCreator(defs []byte) (Creator, error) {
+func NewCreator(def []byte) (Creator, error) {
 	c := &creator{nonTerminals: map[string]*nonTerminal{}}
-	return c, c.load(defs)
+	return c, c.load(def)
 }
 
 type creator struct {
@@ -63,9 +63,9 @@ func (nt *nonTerminal) get(i int) string {
 	return nt.terminal
 }
 
-func (c *creator) load(defs []byte) error {
+func (c *creator) load(def []byte) error {
 
-	lines := strings.Split(string(defs), "\n")
+	lines := strings.Split(string(def), "\n")
 	for i, line := range lines {
 		switch {
 		case len(line) > 8 && line[:8] == "letters:":
