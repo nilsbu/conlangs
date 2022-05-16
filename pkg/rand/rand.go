@@ -54,7 +54,7 @@ func (rnd *natural) Next(max int) int {
 	}
 	r := (*base.Rand)(rnd).Float64() * sum
 	sum = 0.0
-	for i := 0; i < max; i++ {
+	for i := 0; i < max-1; i++ {
 		sum += weights[i]
 		if sum > r {
 			return i

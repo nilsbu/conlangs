@@ -80,13 +80,11 @@ func (c *creator) load(def []byte) error {
 			}
 
 		case hasPrefix("words:", line):
-			if err := c.addOptions(c.ensureNT("$words"), strings.Fields(line[len("words:"):])); err != nil {
-				return err
-			}
+			c.addOptions(c.ensureNT("$words"), strings.Fields(line[len("words:"):]))
 
 		case hasPrefix("reject:", line):
 			for _, rx := range strings.Fields(line[len("reject:"):]) {
-				if rej, err := regexp.CompilePOSIX(rx); err != nil {
+				if rej, err := regexp.Compile(rx); err != nil {
 					return err
 				} else {
 					c.rejections = append(c.rejections, rej)
@@ -100,9 +98,7 @@ func (c *creator) load(def []byte) error {
 			if len(pre) != 1 {
 				return fmt.Errorf("in line %v: expect 1 non-terminal before '=' but got '%v'", i, line[:idx])
 			}
-			if err := c.addOptions(c.ensureNT(pre[0]), strings.Fields(line[idx+1:])); err != nil {
-				return err
-			}
+			c.addOptions(c.ensureNT(pre[0]), strings.Fields(line[idx+1:]))
 		}
 	}
 
@@ -120,7 +116,7 @@ func hasPrefix(pre, str string) bool {
 	}
 }
 
-func (c *creator) addOptions(nonT *nonTerminal, opts []string) error {
+func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
 	nonT.options = make([][]*nonTerminal, len(opts))
 	for i, opt := range opts {
 		nt := []*nonTerminal{}
@@ -131,8 +127,6 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) error {
 		}
 		nonT.options[i] = nt
 	}
-
-	return nil
 }
 
 func (c *creator) ensureNT(key string) *nonTerminal {

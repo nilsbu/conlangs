@@ -67,6 +67,11 @@ func TestCreatorGet(t *testing.T) {
 			true,
 			[]g.Word{"ba", "be", "", "an"}, 4,
 		},
+		{
+			"illegal regexp",
+			"letters: a b s\nwords: bas\nreject: (",
+			false, nil, 0,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))

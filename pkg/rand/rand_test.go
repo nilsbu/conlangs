@@ -32,9 +32,9 @@ func TestRand(t *testing.T) {
 		},
 		{
 			"Natural",
-			rand.Flat(0),
-			[]int{100, 100, 100, 3, 3, 3},
-			[]int{5, 52, 27, 2, 0, 0},
+			rand.Natural(0),
+			[]int{100, 100, 100, 3, 3, 3, 1, 2, 2, 2},
+			[]int{69, 7, 30, 0, 0, 0, 0, 0, 0, 1},
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
