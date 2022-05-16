@@ -6,7 +6,8 @@ import (
 )
 
 type Creator interface {
-	InOrder(n int) []Word
+	N() int
+	Get(i int) Word
 }
 
 type Word string
@@ -122,11 +123,10 @@ func (c *creator) ensureNT(key string) *nonTerminal {
 	}
 }
 
-func (c *creator) InOrder(n int) []Word {
-	words := []Word{}
-	root := c.nonTerminals["$words"]
-	for i := 0; i < n; i++ {
-		words = append(words, Word(root.get(i)))
-	}
-	return words
+func (c *creator) N() int {
+	return c.nonTerminals["$words"].n()
+}
+
+func (c *creator) Get(i int) Word {
+	return Word(c.nonTerminals["$words"].get(i))
 }
