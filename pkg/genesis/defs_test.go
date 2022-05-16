@@ -41,6 +41,24 @@ func TestCreator(t *testing.T) {
 			" = b c\nwords: Ca",
 			false, nil,
 		},
+		{
+			"with two non-terminals",
+			"letters: a e b c\nC = b c\nV = a e\nwords: CV",
+			true,
+			[]g.Word{"ba", "ca", "be", "ce"},
+		},
+		{
+			"repeat non-terminal",
+			"letters: b c\nC = b c\nwords: CC",
+			true,
+			[]g.Word{"bb", "cb", "bc", "cc"},
+		},
+		{
+			"stacked non-terminals",
+			"letters: b c a e n\nW = CV na\nC = b c\nV = a e\n\nwords: W",
+			true,
+			[]g.Word{"ba", "ca", "be", "ce", "na"},
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))
