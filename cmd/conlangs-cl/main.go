@@ -19,7 +19,8 @@ func main() {
 		n, _ := strconv.Atoi(os.Args[1])
 		rnd := rand.Natural(time.Now().UnixNano())
 		for i := 0; i < n; i++ {
-			fmt.Println(creator.Choose(rnd))
+			fmt.Print(creator.Choose(rnd), " ")
 		}
+		fmt.Println()
 	}
 }

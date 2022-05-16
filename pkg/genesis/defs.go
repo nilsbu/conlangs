@@ -2,13 +2,14 @@ package genesis
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
 type Creator interface {
-	N() int
+	N() int // TODO N() doesn't subtract illegal words
 	Get(i int) Word
 	Choose(rnd rand.Rand) Word
 }
@@ -22,6 +23,7 @@ func NewCreator(def []byte) (Creator, error) {
 
 type creator struct {
 	nonTerminals map[string]*nonTerminal
+	rejections   []*regexp.Regexp
 }
 
 type nonTerminal struct {
@@ -71,15 +73,24 @@ func (c *creator) load(def []byte) error {
 	lines := strings.Split(string(def), "\n")
 	for i, line := range lines {
 		switch {
-		case len(line) > 8 && line[:8] == "letters:":
-			for _, opt := range strings.Fields(line[8:]) {
+		case hasPrefix("letters:", line):
+			for _, opt := range strings.Fields(line[len("letters:"):]) {
 				nt := c.ensureNT(opt)
 				nt.terminal = opt
 			}
 
-		case len(line) > 6 && line[:6] == "words:":
-			if err := c.addOptions(c.ensureNT("$words"), strings.Fields(line[6:])); err != nil {
+		case hasPrefix("words:", line):
+			if err := c.addOptions(c.ensureNT("$words"), strings.Fields(line[len("words:"):])); err != nil {
 				return err
+			}
+
+		case hasPrefix("reject:", line):
+			for _, rx := range strings.Fields(line[len("reject:"):]) {
+				if rej, err := regexp.CompilePOSIX(rx); err != nil {
+					return err
+				} else {
+					c.rejections = append(c.rejections, rej)
+				}
 			}
 
 		case strings.Contains(line, "="): // TODO using strings.Contains and strings.Index isn't efficient
@@ -99,6 +110,14 @@ func (c *creator) load(def []byte) error {
 		return fmt.Errorf("def doesn't contain 'words:'")
 	}
 	return nil
+}
+
+func hasPrefix(pre, str string) bool {
+	if len(str) < len(pre) {
+		return false
+	} else {
+		return str[:len(pre)] == pre
+	}
 }
 
 func (c *creator) addOptions(nonT *nonTerminal, opts []string) error {
@@ -131,11 +150,36 @@ func (c *creator) N() int {
 }
 
 func (c *creator) Get(i int) Word {
-	return Word(c.nonTerminals["$words"].get(i))
+	word := Word(c.nonTerminals["$words"].get(i))
+	found := false
+	for _, rx := range c.rejections {
+		if rx.MatchString(string(word)) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return word
+	} else {
+		return ""
+	}
+
 }
 
 func (c *creator) Choose(rnd rand.Rand) Word {
-	return Word(c.choose(rnd, c.nonTerminals["$words"]))
+	for { // TODO Break from infinite loop
+		word := Word(c.choose(rnd, c.nonTerminals["$words"]))
+		found := false
+		for _, rx := range c.rejections {
+			if rx.MatchString(string(word)) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return word
+		}
+	}
 }
 
 func (c *creator) choose(rnd rand.Rand, nt *nonTerminal) string {

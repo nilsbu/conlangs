@@ -61,6 +61,12 @@ func TestCreatorGet(t *testing.T) {
 			true,
 			[]g.Word{"ba", "ca", "be", "ce", "na"}, 5,
 		},
+		{
+			"reject",
+			"letters: b c a e n\nwords: ba be bc an\nreject: bc",
+			true,
+			[]g.Word{"ba", "be", "", "an"}, 4,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))
@@ -121,6 +127,12 @@ func TestCreatorChoose(t *testing.T) {
 			"letters: b c a e n\nW = CV na\nC = b c\nV = a e\n\nwords: W",
 			[]int{0, 0, 1, 1},
 			"ce",
+		},
+		{
+			"reject first option",
+			"reject: ce\nletters: b c a e n\nW = CV na\nC = b c\nV = a e\n\nwords: W",
+			[]int{0, 0, 1, 1, 0, 0, 1, 0},
+			"ca",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
