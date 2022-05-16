@@ -16,27 +16,37 @@ func TestCreator(t *testing.T) {
 		{
 			"no defs",
 			"",
-			false,
-			[]g.Word{},
+			false, nil,
 		},
 		{
 			"single word",
-			"words: bas",
+			"letters: a b s\nwords: bas",
 			true,
 			[]g.Word{"bas"},
 		},
 		{
 			"single word",
-			"words: bas bad",
+			"letters: a b d s\nwords: bas bad",
 			true,
 			[]g.Word{"bas", "bad"},
+		},
+		{
+			"define a custom non-terminal",
+			"letters: a b c\nC = b c\nwords: Ca",
+			true,
+			[]g.Word{"ba", "ca"},
+		},
+		{
+			"incorrect non-terminal definition",
+			" = b c\nwords: Ca",
+			false, nil,
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))
 			if c.ok && err != nil {
 				t.Error("expected no error but got:", err)
-			} else if !c.ok && err != nil {
+			} else if !c.ok && err == nil {
 				t.Error("expected error but none occured")
 			} else if c.ok {
 				words := creator.InOrder(len(c.words))
