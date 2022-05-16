@@ -17,7 +17,7 @@ func main() {
 		fmt.Println(err)
 	} else {
 		n, _ := strconv.Atoi(os.Args[1])
-		rnd := rand.Flat(time.Now().UnixNano())
+		rnd := rand.Natural(time.Now().UnixNano())
 		for i := 0; i < n; i++ {
 			fmt.Println(creator.Choose(rnd))
 		}

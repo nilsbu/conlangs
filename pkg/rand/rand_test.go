@@ -30,6 +30,12 @@ func TestRand(t *testing.T) {
 			[]int{100, 100, 100, 100, 10, 10},
 			[]int{20, 31, 12, 10, 0, 1},
 		},
+		{
+			"Natural",
+			rand.Flat(0),
+			[]int{100, 100, 100, 3, 3, 3},
+			[]int{5, 52, 27, 2, 0, 0},
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			for i, max := range c.maxs {
