@@ -2,6 +2,7 @@ package genesis
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -28,8 +29,14 @@ type creator struct {
 }
 
 type nonTerminal struct {
-	options  [][]*nonTerminal
-	terminal string
+	options   []sequence
+	weightSum float64
+	terminal  string
+}
+
+type sequence struct {
+	chars  []*nonTerminal
+	weight float64
 }
 
 type filter struct {
@@ -44,7 +51,7 @@ func (nt *nonTerminal) n() int {
 		n := 0
 		for _, opt := range nt.options {
 			p := 1
-			for _, nt2 := range opt {
+			for _, nt2 := range opt.chars {
 				p *= nt2.n()
 			}
 			n += p
@@ -56,12 +63,12 @@ func (nt *nonTerminal) n() int {
 func (nt *nonTerminal) get(i int) string {
 	for _, opt := range nt.options {
 		p := 1
-		for _, nt2 := range opt {
+		for _, nt2 := range opt.chars {
 			p *= nt2.n()
 		}
 		if i < p {
 			var str strings.Builder
-			for _, nt2 := range opt {
+			for _, nt2 := range opt.chars {
 				j := i % nt2.n()
 				i /= nt2.n()
 				str.WriteString(nt2.get(j))
@@ -137,17 +144,19 @@ func hasPrefix(pre, str string) bool {
 }
 
 func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
-	// nonT.options = make([][]*nonTerminal, len(opts))
+	ws, sum := weights(len(opts))
+	nonT.weightSum = sum
 
-	for _, rawopt := range opts {
-		for _, opt := range expandOption(rawopt) {
-			nt := []*nonTerminal{}
+	for i, rawopt := range opts {
+		sopts, sws := expandOption(rawopt, ws[i])
+		for j, opt := range sopts {
+			nt := sequence{chars: []*nonTerminal{}, weight: sws[j]}
 			var word strings.Builder
 			for _, char := range opt {
 				word.WriteRune(char)
 				if char != '$' {
 					nt2 := c.ensureNT(word.String())
-					nt = append(nt, nt2)
+					nt.chars = append(nt.chars, nt2)
 					word.Reset()
 				}
 			}
@@ -158,8 +167,10 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
 	}
 }
 
-func expandOption(opt string) []string {
-	opts := make([]string, 1)
+func expandOption(opt string, weight float64) (opts []string, ws []float64) {
+	opts = make([]string, 1)
+	ws = []float64{weight}
+	factor := 0.1
 
 	for _, char := range opt {
 		if char == '?' {
@@ -167,6 +178,9 @@ func expandOption(opt string) []string {
 			for i := 0; i < n; i++ {
 				opts = append(opts, opts[i])
 				opts[i] = opts[i][:len(opts[i])-1]
+
+				ws = append(ws, (1-factor)*ws[i])
+				ws[i] *= factor
 			}
 		} else {
 			for i := range opts {
@@ -175,7 +189,16 @@ func expandOption(opt string) []string {
 		}
 	}
 
-	return opts
+	return opts, ws
+}
+
+func weights(max int) (weights []float64, sum float64) {
+	weights = make([]float64, max)
+	for i := 0; i < max; i++ {
+		weights[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
+		sum += weights[i]
+	}
+	return weights, sum
 }
 
 func (c *creator) ensureNT(key string) *nonTerminal {
@@ -238,13 +261,28 @@ func (c *creator) Choose(rnd rand.Rand) Word {
 
 func (c *creator) choose(rnd rand.Rand, nt *nonTerminal) string {
 	if len(nt.options) > 0 {
-		opt := nt.options[rnd.Next(len(nt.options))]
+		opt := pick(rnd.Float(nt.weightSum), nt.options)
 		var str strings.Builder
-		for _, nt2 := range opt {
+		for _, nt2 := range opt.chars {
 			str.WriteString(c.choose(rnd, nt2))
 		}
 		return str.String()
 	} else {
 		return nt.terminal
 	}
+}
+
+func pick(p float64, opts []sequence) sequence {
+	ws := make([]float64, len(opts))
+	for i := range opts {
+		ws[i] = opts[i].weight
+	}
+	sum := 0.0
+	for i := 0; i < len(opts)-1; i++ {
+		sum += opts[i].weight
+		if sum > p {
+			return opts[i]
+		}
+	}
+	return opts[len(opts)-1]
 }

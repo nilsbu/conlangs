@@ -6,7 +6,8 @@ import (
 )
 
 type Rand interface {
-	Next(max int) int
+	Int(max int) int
+	Float(max float64) float64
 }
 
 func Flat(seed int64) Rand {
@@ -15,23 +16,34 @@ func Flat(seed int64) Rand {
 
 type flat base.Rand
 
-func (rnd *flat) Next(max int) int {
+func (rnd *flat) Int(max int) int {
 	return (*base.Rand)(rnd).Int() % max
 }
 
-func Cycle(values []int) Rand {
+func (rnd *flat) Float(max float64) float64 {
+	return (*base.Rand)(rnd).Float64() * max
+}
+
+func Cycle(values []float64) Rand {
 	return &cycle{values: values}
 }
 
 type cycle struct {
-	values []int
+	values []float64
 	index  int
 }
 
-func (rnd *cycle) Next(max int) int {
-	val := rnd.values[rnd.index] % max
+func (rnd *cycle) Int(max int) int {
+	val := int(rnd.values[rnd.index] * float64(max))
 	rnd.index = (rnd.index + 1) % len(rnd.values)
 	return val
+}
+
+func (rnd *cycle) Float(max float64) float64 {
+	val := rnd.values[rnd.index]
+	rnd.index = (rnd.index + 1) % len(rnd.values)
+	return val * max
+
 }
 
 func Natural(seed int64) Rand {
@@ -40,8 +52,7 @@ func Natural(seed int64) Rand {
 
 type natural base.Rand
 
-func (rnd *natural) Next(max int) int {
-	// TODO Natural weighting should be optimized
+func (rnd *natural) Int(max int) int {
 	if max == 1 {
 		return 0
 	}
@@ -61,4 +72,8 @@ func (rnd *natural) Next(max int) int {
 		}
 	}
 	return max - 1
+}
+
+func (rnd *natural) Float(max float64) float64 {
+	return (*base.Rand)(rnd).Float64() * max
 }
