@@ -84,6 +84,12 @@ func TestCreatorGet(t *testing.T) {
 			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"}, 8,
 		},
 		{
+			"no letters",
+			"C = b n\nV = a e\n\nwords: CVC\nfilter: na > ma;;b$>p",
+			true,
+			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"}, 8,
+		},
+		{
 			"broken filter 1",
 			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: na;b$>p",
 			false, nil, 0,
@@ -92,6 +98,12 @@ func TestCreatorGet(t *testing.T) {
 			"broken filter 2",
 			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: n(a>e;b$>p",
 			false, nil, 0,
+		},
+		{
+			"$ in macro name",
+			"$C = b c\nwords: $C$C",
+			true,
+			[]g.Word{"bb", "cb", "bc", "cc"}, 4,
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {

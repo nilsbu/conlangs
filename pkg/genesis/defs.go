@@ -140,10 +140,14 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
 	nonT.options = make([][]*nonTerminal, len(opts))
 	for i, opt := range opts {
 		nt := []*nonTerminal{}
+		var word strings.Builder
 		for _, char := range opt {
-			nt2 := c.ensureNT(string(char))
-
-			nt = append(nt, nt2)
+			word.WriteRune(char)
+			if char != '$' {
+				nt2 := c.ensureNT(word.String())
+				nt = append(nt, nt2)
+				word.Reset()
+			}
 		}
 		nonT.options[i] = nt
 		nonT.terminal = ""

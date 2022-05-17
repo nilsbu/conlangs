@@ -1,12 +1,17 @@
-letters: a e i o u ə au ai ei ou ia ua io ue t d p b s z m n ŋ r f v
-C = t d p b s z m n
-X = s p t z b d
-Y = p t s
-Z = b d z
-I = C Xr Yf Zv
-V = i a au e o ou ue ai u ei ia ua io 
-D = m n ŋ
-S = IVD IV
+with: std-ipa-features std-assimilations coronal-metathesis
 
-words: SS SSS S SSSS
-filter: mm > m; nn > n; (a|e|i|o|u)m$ > əm; (a|e|i|o|u)n$ > ən
+letters: ʔ a á b ch d e g h i k l m n o p r s t u w y
+
+C = t n k m ch l ʔ s r d h w b y p g
+D = n l ʔ t k r p
+V = a i e á u o
+
+$S = CVD CV
+
+words: V$S$S $S$S V$S $S V$S$S$S $S$S$S
+
+# haplology
+# reject: (..+)\1+
+
+reject: wu yi w$ y$ h$ ʔʔ (p|t|k|ʔ)h
+filter: nr > tr; mr > pr; ŋ > n
