@@ -79,14 +79,6 @@ func (c *creator) load(def []byte) error {
 	lines := strings.Split(string(def), "\n")
 	for i, line := range lines {
 		switch {
-		case hasPrefix("letters:", line):
-			for _, opt := range strings.Fields(line[len("letters:"):]) {
-				for _, r := range opt {
-					nt := c.ensureNT(string(r))
-					nt.terminal = string(r)
-				}
-			}
-
 		case hasPrefix("words:", line):
 			c.addOptions(c.ensureNT("#words"), strings.Fields(line[len("words:"):]))
 
@@ -154,6 +146,7 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
 			nt = append(nt, nt2)
 		}
 		nonT.options[i] = nt
+		nonT.terminal = ""
 	}
 }
 
@@ -161,7 +154,7 @@ func (c *creator) ensureNT(key string) *nonTerminal {
 	if nt, ok := c.nonTerminals[key]; ok {
 		return nt
 	} else {
-		nt = &nonTerminal{}
+		nt = &nonTerminal{terminal: key}
 		c.nonTerminals[key] = nt
 		return nt
 	}
