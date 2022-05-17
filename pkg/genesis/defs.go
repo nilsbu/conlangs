@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/nilsbu/conlangs/pkg/rand"
@@ -18,7 +19,7 @@ type Creator interface {
 type Word string
 
 func NewCreator(def []byte) (Creator, error) {
-	c := &creator{nonTerminals: map[string]*nonTerminal{}}
+	c := &creator{nonTerminals: map[string]*nonTerminal{}, randomRate: .1}
 	return c, c.load(def)
 }
 
@@ -26,6 +27,7 @@ type creator struct {
 	nonTerminals map[string]*nonTerminal
 	rejections   []*regexp.Regexp
 	filters      []*filter
+	randomRate   float64
 }
 
 type nonTerminal struct {
@@ -84,6 +86,9 @@ func (nt *nonTerminal) get(i int) string {
 func (c *creator) load(def []byte) error {
 	// TODO detect cycles
 	lines := strings.Split(string(def), "\n")
+	if err := c.findRate(lines); err != nil {
+		return err
+	}
 	for i, line := range lines {
 		switch {
 		case hasPrefix("words:", line):
@@ -135,6 +140,19 @@ func (c *creator) load(def []byte) error {
 	return nil
 }
 
+func (c *creator) findRate(lines []string) (err error) {
+	for _, line := range lines {
+		if hasPrefix("random-rate:", line) {
+			c.randomRate, err = strconv.ParseFloat(strings.TrimSpace(line[len("random-rate:"):]), 64)
+			if c.randomRate < 0 || c.randomRate > 1 {
+				err = fmt.Errorf("random-rate must be in range [0, 1] but is %v", c.randomRate)
+			}
+			return
+		}
+	}
+	return nil
+}
+
 func hasPrefix(pre, str string) bool {
 	if len(str) < len(pre) {
 		return false
@@ -148,7 +166,7 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
 	nonT.weightSum = sum
 
 	for i, rawopt := range opts {
-		sopts, sws := expandOption(rawopt, ws[i])
+		sopts, sws := c.expandOption(rawopt, ws[i])
 		for j, opt := range sopts {
 			nt := sequence{chars: []*nonTerminal{}, weight: sws[j]}
 			var word strings.Builder
@@ -167,10 +185,9 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
 	}
 }
 
-func expandOption(opt string, weight float64) (opts []string, ws []float64) {
+func (c *creator) expandOption(opt string, weight float64) (opts []string, ws []float64) {
 	opts = make([]string, 1)
 	ws = []float64{weight}
-	factor := 0.1
 
 	for _, char := range opt {
 		if char == '?' {
@@ -179,8 +196,8 @@ func expandOption(opt string, weight float64) (opts []string, ws []float64) {
 				opts = append(opts, opts[i])
 				opts[i] = opts[i][:len(opts[i])-1]
 
-				ws = append(ws, (1-factor)*ws[i])
-				ws[i] *= factor
+				ws = append(ws, (1-c.randomRate)*ws[i])
+				ws[i] *= c.randomRate
 			}
 		} else {
 			for i := range opts {

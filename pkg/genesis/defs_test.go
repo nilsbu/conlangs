@@ -111,6 +111,11 @@ func TestCreatorGet(t *testing.T) {
 			true,
 			[]g.Word{"ba", "ca", "be", "ce", "bab", "cab", "beb", "ceb", "bac", "cac", "bec", "cec"}, 12,
 		},
+		{
+			"broken random-rate",
+			"C = b c\nV=a e\nwords: CVC?\nrandom-rate:10",
+			false, nil, 0,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))
@@ -183,6 +188,24 @@ func TestCreatorChoose(t *testing.T) {
 			"letters: a b s x\nfilter:a>x\nwords: bas",
 			[]float64{0},
 			"bxs",
+		},
+		{
+			"weight of ? with 0",
+			"words: a?b",
+			[]float64{0},
+			"b",
+		},
+		{
+			"weight of ? with 1",
+			"words: a?b",
+			[]float64{1},
+			"ab",
+		},
+		{
+			"weight of ? with .5",
+			"words: a?b\nrandom-rate:.6",
+			[]float64{.5},
+			"b",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
