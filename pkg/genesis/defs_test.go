@@ -105,6 +105,12 @@ func TestCreatorGet(t *testing.T) {
 			true,
 			[]g.Word{"bb", "cb", "bc", "cc"}, 4,
 		},
+		{
+			"optional part",
+			"C = b c\nV=a e\nwords: CVC?",
+			true,
+			[]g.Word{"ba", "ca", "be", "ce", "bab", "cab", "beb", "ceb", "bac", "cac", "bec", "cec"}, 12,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))

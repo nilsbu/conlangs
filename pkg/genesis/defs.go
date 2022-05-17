@@ -137,21 +137,45 @@ func hasPrefix(pre, str string) bool {
 }
 
 func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
-	nonT.options = make([][]*nonTerminal, len(opts))
-	for i, opt := range opts {
-		nt := []*nonTerminal{}
-		var word strings.Builder
-		for _, char := range opt {
-			word.WriteRune(char)
-			if char != '$' {
-				nt2 := c.ensureNT(word.String())
-				nt = append(nt, nt2)
-				word.Reset()
+	// nonT.options = make([][]*nonTerminal, len(opts))
+
+	for _, rawopt := range opts {
+		for _, opt := range expandOption(rawopt) {
+			nt := []*nonTerminal{}
+			var word strings.Builder
+			for _, char := range opt {
+				word.WriteRune(char)
+				if char != '$' {
+					nt2 := c.ensureNT(word.String())
+					nt = append(nt, nt2)
+					word.Reset()
+				}
 			}
+			nonT.options = append(nonT.options, nt)
 		}
-		nonT.options[i] = nt
+
 		nonT.terminal = ""
 	}
+}
+
+func expandOption(opt string) []string {
+	opts := make([]string, 1)
+
+	for _, char := range opt {
+		if char == '?' {
+			n := len(opts)
+			for i := 0; i < n; i++ {
+				opts = append(opts, opts[i])
+				opts[i] = opts[i][:len(opts[i])-1]
+			}
+		} else {
+			for i := range opts {
+				opts[i] += string(char)
+			}
+		}
+	}
+
+	return opts
 }
 
 func (c *creator) ensureNT(key string) *nonTerminal {
