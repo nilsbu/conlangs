@@ -11,7 +11,6 @@ import (
 )
 
 type Creator interface {
-	N() int // TODO N() doesn't subtract illegal words
 	Get(i int) Word
 	Choose(rnd rand.Rand) Word
 }
@@ -314,10 +313,6 @@ func (c *creator) ensureNT(key string) *nonTerminal {
 		c.nonTerminals[key] = nt
 		return nt
 	}
-}
-
-func (c *creator) N() int {
-	return c.nonTerminals["#words"].n()
 }
 
 func (c *creator) Get(i int) Word {

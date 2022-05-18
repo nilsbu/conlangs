@@ -13,145 +13,144 @@ func TestCreatorGet(t *testing.T) {
 		defs  string
 		ok    bool
 		words []g.Word
-		n     int
 	}{
 		{
 			"no defs",
 			"",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"single word",
 			"letters: a b s\nwords: bas",
 			true,
-			[]g.Word{"bas"}, 1,
+			[]g.Word{"bas"},
 		},
 		{
 			"single word",
 			"letters: a b s\nwords: bas",
 			true,
-			[]g.Word{"bas"}, 1,
+			[]g.Word{"bas"},
 		},
 		{
 			"no word",
 			"letters: a b d s\nwords: ",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"define a custom non-terminal",
 			"letters: a b c\nC = b c\nwords: Ca",
 			true,
-			[]g.Word{"ba", "ca"}, 2,
+			[]g.Word{"ba", "ca"},
 		},
 		{
 			"incorrect non-terminal definition",
 			" = b c\nwords: Ca",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"with two non-terminals",
 			"letters: a e b c\nC = b c\nV = a e\nwords: CV",
 			true,
-			[]g.Word{"ba", "ca", "be", "ce"}, 4,
+			[]g.Word{"ba", "ca", "be", "ce"},
 		},
 		{
 			"repeat non-terminal",
 			"letters: b c\nC = b c\nwords: CC",
 			true,
-			[]g.Word{"bb", "cb", "bc", "cc"}, 4,
+			[]g.Word{"bb", "cb", "bc", "cc"},
 		},
 		{
 			"stacked non-terminals",
 			"letters: b c a e n\nW = CV na\nC = b c\nV = a e\n\nwords: W",
 			true,
-			[]g.Word{"ba", "ca", "be", "ce", "na"}, 5,
+			[]g.Word{"ba", "ca", "be", "ce", "na"},
 		},
 		{
 			"reject",
 			"letters: b c a e n\nwords: ba be bc an\nreject: bc",
 			true,
-			[]g.Word{"ba", "be", "", "an"}, 4,
+			[]g.Word{"ba", "be", "", "an"},
 		},
 		{
 			"illegal regexp",
 			"letters: a b s\nwords: bas\nreject: (",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"missing words",
 			"letters: a b s\n",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"filter",
 			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: na > ma;;b$>p",
 			true,
-			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"}, 8,
+			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"},
 		},
 		{
 			"no letters",
 			"C = b n\nV = a e\n\nwords: CVC\nfilter: na > ma;;b$>p",
 			true,
-			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"}, 8,
+			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"},
 		},
 		{
 			"broken filter 1",
 			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: na;b$>p",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"broken filter 2",
 			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: n(a>e;b$>p",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"$ in macro name",
 			"$C = b c\nwords: $C$C",
 			true,
-			[]g.Word{"bb", "cb", "bc", "cc"}, 4,
+			[]g.Word{"bb", "cb", "bc", "cc"},
 		},
 		{
 			"optional part",
 			"C = b c\nV=a e\nwords: CVC?",
 			true,
-			[]g.Word{"ba", "ca", "be", "ce", "bab", "cab", "beb", "ceb", "bac", "cac", "bec", "cec"}, 12,
+			[]g.Word{"ba", "ca", "be", "ce", "bab", "cab", "beb", "ceb", "bac", "cac", "bec", "cec"},
 		},
 		{
 			"broken random-rate",
 			"C = b c\nV=a e\nwords: CVC?\nrandom-rate:10", // > 1 not permissible
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"invalid weights 1",
 			"words: a:1 b",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"invalid weights 2",
 			"words: a b:1",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"invalid weights 3",
 			"words: a:1 b:z",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"invalid weights 4",
 			"words: a:1 b:2:2",
-			false, nil, 0,
+			false, nil,
 		},
 		{
 			"table filter 1",
 			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc - - -\nd - + +",
 			true,
-			[]g.Word{"ba", "", "", "", "", "de", "bi", "", "di"}, 9,
+			[]g.Word{"ba", "", "", "", "", "de", "bi", "", "di"},
 		},
 		{
 			"table filter 1",
 			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +",
 			true,
-			[]g.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"}, 9,
+			[]g.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -161,11 +160,6 @@ func TestCreatorGet(t *testing.T) {
 			} else if !c.ok && err == nil {
 				t.Error("expected error but none occured")
 			} else if c.ok {
-				n := creator.N()
-				if c.n != n {
-					t.Fatalf("expected %v words but got %v", c.n, n)
-				}
-
 				for i, ex := range c.words {
 					ac := creator.Get(i)
 					if ex != ac {
