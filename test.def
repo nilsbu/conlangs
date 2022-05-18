@@ -6,9 +6,9 @@ C = t n k m ch l ʔ s r d h w b y p g
 D = n l ʔ t k r p
 V = a i e á u o
 
-$S = CVD CV
+S = CVD CV
 
-words: V$S$S $S$S V$S $S V$S$S$S $S$S$S
+words: VSS SS VS S VSSS SSS
 
 # haplology
 # reject: (..+)\1+

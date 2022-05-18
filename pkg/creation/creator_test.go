@@ -1,9 +1,9 @@
-package genesis_test
+package creation_test
 
 import (
 	"testing"
 
-	g "github.com/nilsbu/conlangs/pkg/genesis"
+	cr "github.com/nilsbu/conlangs/pkg/creation"
 	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
@@ -12,7 +12,7 @@ func TestCreatorGet(t *testing.T) {
 		name  string
 		defs  string
 		ok    bool
-		words []g.Word
+		words []cr.Word
 	}{
 		{
 			"no defs",
@@ -23,13 +23,13 @@ func TestCreatorGet(t *testing.T) {
 			"single word",
 			"letters: a b s\nwords: bas",
 			true,
-			[]g.Word{"bas"},
+			[]cr.Word{"bas"},
 		},
 		{
 			"single word",
 			"letters: a b s\nwords: bas",
 			true,
-			[]g.Word{"bas"},
+			[]cr.Word{"bas"},
 		},
 		{
 			"no word",
@@ -40,7 +40,7 @@ func TestCreatorGet(t *testing.T) {
 			"define a custom non-terminal",
 			"letters: a b c\nC = b c\nwords: Ca",
 			true,
-			[]g.Word{"ba", "ca"},
+			[]cr.Word{"ba", "ca"},
 		},
 		{
 			"incorrect non-terminal definition",
@@ -51,25 +51,25 @@ func TestCreatorGet(t *testing.T) {
 			"with two non-terminals",
 			"letters: a e b c\nC = b c\nV = a e\nwords: CV",
 			true,
-			[]g.Word{"ba", "ca", "be", "ce"},
+			[]cr.Word{"ba", "ca", "be", "ce"},
 		},
 		{
 			"repeat non-terminal",
 			"letters: b c\nC = b c\nwords: CC",
 			true,
-			[]g.Word{"bb", "cb", "bc", "cc"},
+			[]cr.Word{"bb", "cb", "bc", "cc"},
 		},
 		{
 			"stacked non-terminals",
 			"letters: b c a e n\nW = CV na\nC = b c\nV = a e\n\nwords: W",
 			true,
-			[]g.Word{"ba", "ca", "be", "ce", "na"},
+			[]cr.Word{"ba", "ca", "be", "ce", "na"},
 		},
 		{
 			"reject",
 			"letters: b c a e n\nwords: ba be bc an\nreject: bc",
 			true,
-			[]g.Word{"ba", "be", "", "an"},
+			[]cr.Word{"ba", "be", "", "an"},
 		},
 		{
 			"illegal regexp",
@@ -85,13 +85,13 @@ func TestCreatorGet(t *testing.T) {
 			"filter",
 			"letters: b a e n m p\nC = b n\nV = a e\n\nwords: CVC\nfilter: na > ma;;b$>p",
 			true,
-			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"},
+			[]cr.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"},
 		},
 		{
 			"no letters",
 			"C = b n\nV = a e\n\nwords: CVC\nfilter: na > ma;;b$>p",
 			true,
-			[]g.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"},
+			[]cr.Word{"bap", "map", "bep", "nep", "ban", "man", "ben", "nen"},
 		},
 		{
 			"broken filter 1",
@@ -107,13 +107,13 @@ func TestCreatorGet(t *testing.T) {
 			"$ in macro name",
 			"$C = b c\nwords: $C$C",
 			true,
-			[]g.Word{"bb", "cb", "bc", "cc"},
+			[]cr.Word{"bb", "cb", "bc", "cc"},
 		},
 		{
 			"optional part",
 			"C = b c\nV=a e\nwords: CVC?",
 			true,
-			[]g.Word{"ba", "ca", "be", "ce", "bab", "cab", "beb", "ceb", "bac", "cac", "bec", "cec"},
+			[]cr.Word{"ba", "ca", "be", "ce", "bab", "cab", "beb", "ceb", "bac", "cac", "bec", "cec"},
 		},
 		{
 			"broken random-rate",
@@ -144,17 +144,17 @@ func TestCreatorGet(t *testing.T) {
 			"table filter 1",
 			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc - - -\nd - + +",
 			true,
-			[]g.Word{"ba", "", "", "", "", "de", "bi", "", "di"},
+			[]cr.Word{"ba", "", "", "", "", "de", "bi", "", "di"},
 		},
 		{
 			"table filter 1",
 			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +",
 			true,
-			[]g.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
+			[]cr.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			creator, err := g.NewCreator([]byte(c.defs))
+			creator, err := cr.NewCreator([]byte(c.defs))
 			if c.ok && err != nil {
 				t.Error("expected no error but got:", err)
 			} else if !c.ok && err == nil {
@@ -176,7 +176,7 @@ func TestCreatorChoose(t *testing.T) {
 		name    string
 		defs    string
 		choices []float64
-		word    g.Word
+		word    cr.Word
 	}{
 		{
 			"single word",
@@ -246,7 +246,7 @@ func TestCreatorChoose(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			creator, err := g.NewCreator([]byte(c.defs))
+			creator, err := cr.NewCreator([]byte(c.defs))
 			if err != nil {
 				t.Error("expected no error but got:", err)
 			} else {

@@ -6,14 +6,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nilsbu/conlangs/pkg/genesis"
+	"github.com/nilsbu/conlangs/pkg/creation"
 	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
 func main() {
 	if def, err := os.ReadFile("test.def"); err != nil {
 		fmt.Println(err)
-	} else if creator, err := genesis.NewCreator(def); err != nil {
+	} else if creator, err := creation.NewCreator(def); err != nil {
 		fmt.Println(err)
 	} else {
 		n, _ := strconv.Atoi(os.Args[1])

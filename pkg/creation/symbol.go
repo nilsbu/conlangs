@@ -1,4 +1,4 @@
-package genesis
+package creation
 
 import (
 	"fmt"
