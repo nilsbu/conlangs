@@ -10,50 +10,73 @@ import (
 	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
+// stdRandomRate is the rate at which optional symbols are chosen in case random-rate isn't set.
+const stdRandomRate = 0.1
+
 type Creator interface {
+	// Get returns the ith word of the language.
 	Get(i int) Word
+	// Choose returns a random word from the language.
 	Choose(rnd rand.Rand) Word
 }
 
+// A Word is a valid string of character in a language.
 type Word string
 
+// NewCreator creates a Creator according to a .defs file.
+// If the file is invalid, it will return an error.
 func NewCreator(def []byte) (Creator, error) {
-	c := &creator{nonTerminals: map[string]*nonTerminal{}, randomRate: .1}
+	c := &creator{symbols: map[string]*symbols{}, randomRate: stdRandomRate}
 	return c, c.load(def)
 }
 
 type creator struct {
-	nonTerminals map[string]*nonTerminal
-	rejections   []*regexp.Regexp
-	filters      []*filter
-	randomRate   float64
+	symbols    map[string]*symbols
+	rejections []*regexp.Regexp
+	filters    []*filter
+	// randomRate is a number in range [0-1) that determines the likelihood of an optional symbol (marked by '?') to occur
+	randomRate float64
 }
 
-type nonTerminal struct {
+// A symbols is a either a non-terminal, which means it can be replaced by one or more other symbols
+// or a terminal, which is one or more characters that are final.
+// If it is a non-termial, options will have at least one sequence. Otherwise terminal is non-empty.
+// TODO weight and weightSum should be united into one struct.
+type symbols struct {
 	options   []sequence
 	weightSum float64
 	terminal  string
 }
 
 type sequence struct {
-	chars  []*nonTerminal
+	chars  []*symbols
 	weight float64
 }
 
+// A filter is a rule by which a part of a word is replaced by something else.
+// It searches a string using a regular expression.
 type filter struct {
 	regexp *regexp.Regexp
 	new    string
 }
 
-func (nt *nonTerminal) n() int {
-	if len(nt.options) == 0 {
+func (f *filter) apply(word Word) Word {
+	idxs := f.regexp.FindAllStringIndex(string(word), 20)
+	for _, idx := range idxs {
+		word = word[:idx[0]] + Word(f.new) + word[idx[1]:]
+	}
+	return word
+}
+
+func (s *symbols) n() int {
+	if len(s.options) == 0 {
 		return 1
 	} else {
 		n := 0
-		for _, opt := range nt.options {
+		for _, opt := range s.options {
 			p := 1
-			for _, nt2 := range opt.chars {
-				p *= nt2.n()
+			for _, s2 := range opt.chars {
+				p *= s2.n()
 			}
 			n += p
 		}
@@ -61,25 +84,25 @@ func (nt *nonTerminal) n() int {
 	}
 }
 
-func (nt *nonTerminal) get(i int) string {
-	for _, opt := range nt.options {
+func (s *symbols) get(i int) string {
+	for _, opt := range s.options {
 		p := 1
-		for _, nt2 := range opt.chars {
-			p *= nt2.n()
+		for _, s2 := range opt.chars {
+			p *= s2.n()
 		}
 		if i < p {
 			var str strings.Builder
-			for _, nt2 := range opt.chars {
-				j := i % nt2.n()
-				i /= nt2.n()
-				str.WriteString(nt2.get(j))
+			for _, s2 := range opt.chars {
+				j := i % s2.n()
+				i /= s2.n()
+				str.WriteString(s2.get(j))
 			}
 			return str.String()
 		} else {
 			i -= p
 		}
 	}
-	return nt.terminal
+	return s.terminal
 }
 
 func (c *creator) load(def []byte) error {
@@ -96,7 +119,7 @@ func (c *creator) load(def []byte) error {
 
 		switch {
 		case hasPrefix("words:", line):
-			if err := c.addOptions(c.ensureNT("#words"), strings.Fields(line[len("words:"):])); err != nil {
+			if err := c.addOptions(c.ensureSymbolExists("#words"), strings.Fields(line[len("words:"):])); err != nil {
 				return err
 			}
 
@@ -112,9 +135,9 @@ func (c *creator) load(def []byte) error {
 			pre := strings.Fields(line[:idx])
 
 			if len(pre) != 1 {
-				return fmt.Errorf("in line %v: expect 1 non-terminal before '=' but got '%v'", i, line[:idx])
+				return fmt.Errorf("in line %v: expect one non-terminal before '=' but got '%v'", i, line[:idx])
 			}
-			if err := c.addOptions(c.ensureNT(pre[0]), strings.Fields(line[idx+1:])); err != nil {
+			if err := c.addOptions(c.ensureSymbolExists(pre[0]), strings.Fields(line[idx+1:])); err != nil {
 				return err
 			}
 
@@ -164,7 +187,7 @@ func (c *creator) load(def []byte) error {
 		}
 	}
 
-	if _, ok := c.nonTerminals["#words"]; !ok {
+	if _, ok := c.symbols["#words"]; !ok {
 		return fmt.Errorf("def doesn't contain 'words:'")
 	}
 	return nil
@@ -212,7 +235,7 @@ func hasPrefix(pre, str string) bool {
 	}
 }
 
-func (c *creator) addOptions(nonT *nonTerminal, opts []string) error {
+func (c *creator) addOptions(nonT *symbols, opts []string) error {
 	if len(opts) == 0 {
 		return fmt.Errorf("at least one option needs to be given")
 	}
@@ -226,19 +249,20 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) error {
 	for i, rawopt := range opts {
 		sopts, sws := c.expandOption(rawopt, ws[i])
 		for j, opt := range sopts {
-			nt := sequence{chars: []*nonTerminal{}, weight: sws[j]}
+			s := sequence{chars: []*symbols{}, weight: sws[j]}
 			var word strings.Builder
 			for _, char := range opt {
 				word.WriteRune(char)
 				if char != '$' {
-					nt2 := c.ensureNT(word.String())
-					nt.chars = append(nt.chars, nt2)
+					s.chars = append(s.chars, c.ensureSymbolExists(word.String()))
 					word.Reset()
 				}
 			}
-			nonT.options = append(nonT.options, nt)
+			nonT.options = append(nonT.options, s)
 		}
 
+		// A symbol is either terminal or non-terminal. By default ensureSymbolExists() sets a terinal value,
+		// so it needs to be removed, when options are set (and the symbol is determined to be non-terminal).
 		nonT.terminal = ""
 	}
 
@@ -305,19 +329,19 @@ func weights(opts []string) (weights []float64, sum float64, err error) {
 	return weights, sum, nil
 }
 
-func (c *creator) ensureNT(key string) *nonTerminal {
-	if nt, ok := c.nonTerminals[key]; ok {
-		return nt
+func (c *creator) ensureSymbolExists(name string) *symbols {
+	if s, ok := c.symbols[name]; ok {
+		return s
 	} else {
-		nt = &nonTerminal{terminal: key}
-		c.nonTerminals[key] = nt
-		return nt
+		s = &symbols{terminal: name}
+		c.symbols[name] = s
+		return s
 	}
 }
 
 func (c *creator) Get(i int) Word {
-	word := Word(c.nonTerminals["#words"].get(i))
-	word = c.filter(word)
+	word := Word(c.symbols["#words"].get(i))
+	word = c.applyAllFilters(word)
 	found := false
 	for _, rx := range c.rejections {
 		if rx.MatchString(string(word)) {
@@ -332,20 +356,17 @@ func (c *creator) Get(i int) Word {
 	}
 }
 
-func (c *creator) filter(word Word) Word {
+func (c *creator) applyAllFilters(word Word) Word {
 	for _, filter := range c.filters {
-		idxs := filter.regexp.FindAllStringIndex(string(word), 20)
-		for _, idx := range idxs {
-			word = word[:idx[0]] + Word(filter.new) + word[idx[1]:]
-		}
+		word = filter.apply(word)
 	}
 	return word
 }
 
 func (c *creator) Choose(rnd rand.Rand) Word {
 	for { // TODO Break from infinite loop
-		word := Word(c.choose(rnd, c.nonTerminals["#words"]))
-		word = c.filter(word)
+		word := Word(c.choose(rnd, c.symbols["#words"]))
+		word = c.applyAllFilters(word)
 		found := false
 		for _, rx := range c.rejections {
 			if rx.MatchString(string(word)) {
@@ -359,16 +380,16 @@ func (c *creator) Choose(rnd rand.Rand) Word {
 	}
 }
 
-func (c *creator) choose(rnd rand.Rand, nt *nonTerminal) string {
-	if len(nt.options) > 0 {
-		opt := pick(rnd.Float(nt.weightSum), nt.options)
+func (c *creator) choose(rnd rand.Rand, s *symbols) string {
+	if len(s.options) > 0 {
+		opt := pick(rnd.Float(s.weightSum), s.options)
 		var str strings.Builder
-		for _, nt2 := range opt.chars {
-			str.WriteString(c.choose(rnd, nt2))
+		for _, s2 := range opt.chars {
+			str.WriteString(c.choose(rnd, s2))
 		}
 		return str.String()
 	} else {
-		return nt.terminal
+		return s.terminal
 	}
 }
 
