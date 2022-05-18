@@ -28,9 +28,14 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"single word",
-			"letters: a b d s\nwords: bas bad",
+			"letters: a b s\nwords: bas",
 			true,
-			[]g.Word{"bas", "bad"}, 2,
+			[]g.Word{"bas"}, 1,
+		},
+		{
+			"no word",
+			"letters: a b d s\nwords: ",
+			false, nil, 0,
 		},
 		{
 			"define a custom non-terminal",
@@ -113,7 +118,27 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"broken random-rate",
-			"C = b c\nV=a e\nwords: CVC?\nrandom-rate:10",
+			"C = b c\nV=a e\nwords: CVC?\nrandom-rate:10", // > 1 not permissible
+			false, nil, 0,
+		},
+		{
+			"invalid weights 1",
+			"words: a:1 b",
+			false, nil, 0,
+		},
+		{
+			"invalid weights 2",
+			"words: a b:1",
+			false, nil, 0,
+		},
+		{
+			"invalid weights 3",
+			"words: a:1 b:z",
+			false, nil, 0,
+		},
+		{
+			"invalid weights 4",
+			"words: a:1 b:2:2",
 			false, nil, 0,
 		},
 	} {
@@ -204,6 +229,12 @@ func TestCreatorChoose(t *testing.T) {
 		{
 			"weight of ? with .5",
 			"words: a?b\nrandom-rate:.6",
+			[]float64{.5},
+			"b",
+		},
+		{
+			"weight with :",
+			"words: a:1 b:1.2",
 			[]float64{.5},
 			"b",
 		},

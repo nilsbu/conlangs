@@ -92,7 +92,9 @@ func (c *creator) load(def []byte) error {
 	for i, line := range lines {
 		switch {
 		case hasPrefix("words:", line):
-			c.addOptions(c.ensureNT("#words"), strings.Fields(line[len("words:"):]))
+			if err := c.addOptions(c.ensureNT("#words"), strings.Fields(line[len("words:"):])); err != nil {
+				return err
+			}
 
 		case hasPrefix("reject:", line):
 			for _, rx := range strings.Fields(line[len("reject:"):]) {
@@ -110,7 +112,9 @@ func (c *creator) load(def []byte) error {
 			if len(pre) != 1 {
 				return fmt.Errorf("in line %v: expect 1 non-terminal before '=' but got '%v'", i, line[:idx])
 			}
-			c.addOptions(c.ensureNT(pre[0]), strings.Fields(line[idx+1:]))
+			if err := c.addOptions(c.ensureNT(pre[0]), strings.Fields(line[idx+1:])); err != nil {
+				return err
+			}
 
 		case hasPrefix("filter:", line):
 			for _, rule := range strings.Split(line[len("filter:"):], ";") {
@@ -161,8 +165,15 @@ func hasPrefix(pre, str string) bool {
 	}
 }
 
-func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
-	ws, sum := weights(len(opts))
+func (c *creator) addOptions(nonT *nonTerminal, opts []string) error {
+	if len(opts) == 0 {
+		return fmt.Errorf("at least one option needs to be given")
+	}
+
+	ws, sum, err := weights(opts)
+	if err != nil {
+		return err
+	}
 	nonT.weightSum = sum
 
 	for i, rawopt := range opts {
@@ -183,6 +194,8 @@ func (c *creator) addOptions(nonT *nonTerminal, opts []string) {
 
 		nonT.terminal = ""
 	}
+
+	return nil
 }
 
 func (c *creator) expandOption(opt string, weight float64) (opts []string, ws []float64) {
@@ -209,13 +222,40 @@ func (c *creator) expandOption(opt string, weight float64) (opts []string, ws []
 	return opts, ws
 }
 
-func weights(max int) (weights []float64, sum float64) {
+func weights(opts []string) (weights []float64, sum float64, err error) {
+	max := len(opts)
 	weights = make([]float64, max)
+
+	explicit := 0 // 0 = uninitialized, 1 = explicit weights, 2 = implicit
 	for i := 0; i < max; i++ {
-		weights[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
+		split := strings.Split(opts[i], ":")
+		if explicit < 2 {
+			if len(split) == 1 {
+				if explicit == 1 {
+					return nil, 0, fmt.Errorf("either use weights for all options or none")
+				} else {
+					explicit = 2
+					weights[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
+				}
+			} else if len(split) == 2 {
+				if w, err := strconv.ParseFloat(split[1], 64); err != nil {
+					return nil, 0, fmt.Errorf("'%v' has no valid weight", opts[i])
+				} else {
+					explicit = 1
+					weights[i] = w
+					opts[i] = split[0]
+				}
+			} else {
+				return nil, 0, fmt.Errorf("'%v' has no valid weight", opts[i])
+			}
+		} else if len(split) == 1 {
+			weights[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
+		} else {
+			return nil, 0, fmt.Errorf("either use weights for all options or none")
+		}
 		sum += weights[i]
 	}
-	return weights, sum
+	return weights, sum, nil
 }
 
 func (c *creator) ensureNT(key string) *nonTerminal {
