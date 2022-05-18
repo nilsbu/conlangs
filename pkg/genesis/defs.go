@@ -89,7 +89,12 @@ func (c *creator) load(def []byte) error {
 	if err := c.findRate(lines); err != nil {
 		return err
 	}
+
+	tableHeads := []string{}
+
 	for i, line := range lines {
+		continueTable := false
+
 		switch {
 		case hasPrefix("words:", line):
 			if err := c.addOptions(c.ensureNT("#words"), strings.Fields(line[len("words:"):])); err != nil {
@@ -98,10 +103,8 @@ func (c *creator) load(def []byte) error {
 
 		case hasPrefix("reject:", line):
 			for _, rx := range strings.Fields(line[len("reject:"):]) {
-				if rej, err := regexp.Compile(rx); err != nil {
+				if err := c.addRejection(rx); err != nil {
 					return err
-				} else {
-					c.rejections = append(c.rejections, rej)
 				}
 			}
 
@@ -126,15 +129,39 @@ func (c *creator) load(def []byte) error {
 					return fmt.Errorf("rule '%v' doesn't contain '>'", rule)
 				}
 				pre, pos := strings.TrimSpace(rule[:idx]), strings.TrimSpace(rule[idx+1:])
-				if rej, err := regexp.Compile(pre); err != nil {
+				if err := c.addFilter(pre, pos); err != nil {
 					return err
-				} else {
-					c.filters = append(c.filters, &filter{
-						regexp: rej,
-						new:    pos,
-					})
 				}
 			}
+		case hasPrefix("%", line):
+			continueTable = true
+			tableHeads = strings.Fields(line[1:])
+		case len(tableHeads) > 0:
+			continueTable = true
+
+			fields := strings.Fields(line)
+			if len(fields) != len(tableHeads)+1 {
+				return fmt.Errorf("table doesn't have correct length: columns = %v, but got %v", len(tableHeads), len(fields)-1)
+			} else {
+				for i, f := range fields[1:] {
+					switch f {
+					case "+":
+						continue
+					case "-":
+						if err := c.addRejection(fields[0] + tableHeads[i]); err != nil {
+							return err
+						}
+					default:
+						if err := c.addFilter(fields[0]+tableHeads[i], f); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+
+		if !continueTable {
+			tableHeads = []string{}
 		}
 	}
 
@@ -142,6 +169,27 @@ func (c *creator) load(def []byte) error {
 		return fmt.Errorf("def doesn't contain 'words:'")
 	}
 	return nil
+}
+
+func (c *creator) addRejection(rx string) error {
+	if rej, err := regexp.Compile(rx); err != nil {
+		return err
+	} else {
+		c.rejections = append(c.rejections, rej)
+		return nil
+	}
+}
+
+func (c *creator) addFilter(pre, pos string) error {
+	if rej, err := regexp.Compile(pre); err != nil {
+		return err
+	} else {
+		c.filters = append(c.filters, &filter{
+			regexp: rej,
+			new:    pos,
+		})
+		return nil
+	}
 }
 
 func (c *creator) findRate(lines []string) (err error) {

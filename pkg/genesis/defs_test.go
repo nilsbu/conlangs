@@ -141,6 +141,18 @@ func TestCreatorGet(t *testing.T) {
 			"words: a:1 b:2:2",
 			false, nil, 0,
 		},
+		{
+			"table filter 1",
+			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc - - -\nd - + +",
+			true,
+			[]g.Word{"ba", "", "", "", "", "de", "bi", "", "di"}, 9,
+		},
+		{
+			"table filter 1",
+			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +",
+			true,
+			[]g.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"}, 9,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			creator, err := g.NewCreator([]byte(c.defs))
