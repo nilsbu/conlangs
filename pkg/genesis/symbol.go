@@ -5,17 +5,20 @@ import "strings"
 // A symbols is a either a non-terminal, which means it can be replaced by one or more other symbols
 // or a terminal, which is one or more characters that are final.
 // If it is a non-termial, options will have at least one sequence. Otherwise terminal is non-empty.
-// TODO weight and weightSum should be united into one struct.
 type symbols struct {
-	options   []sequence
-	weightSum float64
-	terminal  string
+	options  []sequence
+	weights  weight
+	terminal string
 }
 
 // A sequence is a sequence of symbols.
-type sequence struct {
-	chars  []*symbols
-	weight float64
+type sequence []*symbols
+
+// weight describes the relative likelihood of options to be chosen.
+// It is used in symbols.
+type weight struct {
+	options []float64
+	sum     float64
 }
 
 // n recursively calculates the number of options that can come from a symbol.
@@ -27,7 +30,7 @@ func (s *symbols) n() int {
 		n := 0
 		for _, opt := range s.options {
 			p := 1
-			for _, s2 := range opt.chars {
+			for _, s2 := range opt {
 				p *= s2.n()
 			}
 			n += p
@@ -41,12 +44,12 @@ func (s *symbols) n() int {
 func (s *symbols) get(i int) string {
 	for _, opt := range s.options {
 		p := 1
-		for _, s2 := range opt.chars {
+		for _, s2 := range opt {
 			p *= s2.n()
 		}
 		if i < p {
 			var str strings.Builder
-			for _, s2 := range opt.chars {
+			for _, s2 := range opt {
 				j := i % s2.n()
 				i /= s2.n()
 				str.WriteString(s2.get(j))
@@ -57,4 +60,21 @@ func (s *symbols) get(i int) string {
 		}
 	}
 	return s.terminal
+}
+
+// choose picks a sequence from the options. It uses p, which is in range [0, s.weights.sum)
+// to determine which one.
+func (s *symbols) choose(p float64) sequence {
+	ws := make([]float64, len(s.options))
+	for i := range s.options {
+		ws[i] = s.weights.options[i]
+	}
+	sum := 0.0
+	for i := 0; i < len(s.options)-1; i++ {
+		sum += s.weights.options[i]
+		if sum > p {
+			return s.options[i]
+		}
+	}
+	return s.options[len(s.options)-1]
 }

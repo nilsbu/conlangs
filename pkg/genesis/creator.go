@@ -188,21 +188,23 @@ func (c *creator) addOptions(nonT *symbols, opts []string) error {
 		return fmt.Errorf("at least one option needs to be given")
 	}
 
-	ws, sum, err := weights(opts)
+	// tmpWeights might be changed when options are expanded
+	tmpWeights, err := calcWeights(opts)
 	if err != nil {
 		return err
 	}
-	nonT.weightSum = sum
+	nonT.weights.sum = tmpWeights.sum
 
 	for i, rawopt := range opts {
-		sopts, sws := c.expandOption(rawopt, ws[i])
+		sopts, sws := c.expandOption(rawopt, tmpWeights.options[i])
 		for j, opt := range sopts {
-			s := sequence{chars: []*symbols{}, weight: sws[j]}
+			s := []*symbols{}
+			nonT.weights.options = append(nonT.weights.options, sws[j])
 			var word strings.Builder
 			for _, char := range opt {
 				word.WriteRune(char)
 				if char != '$' {
-					s.chars = append(s.chars, c.ensureSymbolExists(word.String()))
+					s = append(s, c.ensureSymbolExists(word.String()))
 					word.Reset()
 				}
 			}
@@ -241,9 +243,9 @@ func (c *creator) expandOption(opt string, weight float64) (opts []string, ws []
 	return opts, ws
 }
 
-func weights(opts []string) (weights []float64, sum float64, err error) {
+func calcWeights(opts []string) (weights weight, err error) {
 	max := len(opts)
-	weights = make([]float64, max)
+	weights.options = make([]float64, max)
 
 	explicit := 0 // 0 = uninitialized, 1 = explicit weights, 2 = implicit
 	for i := 0; i < max; i++ {
@@ -251,30 +253,30 @@ func weights(opts []string) (weights []float64, sum float64, err error) {
 		if explicit < 2 {
 			if len(split) == 1 {
 				if explicit == 1 {
-					return nil, 0, fmt.Errorf("either use weights for all options or none")
+					return weights, fmt.Errorf("either use weights for all options or none")
 				} else {
 					explicit = 2
-					weights[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
+					weights.options[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
 				}
 			} else if len(split) == 2 {
 				if w, err := strconv.ParseFloat(split[1], 64); err != nil {
-					return nil, 0, fmt.Errorf("'%v' has no valid weight", opts[i])
+					return weights, fmt.Errorf("'%v' has no valid weight", opts[i])
 				} else {
 					explicit = 1
-					weights[i] = w
+					weights.options[i] = w
 					opts[i] = split[0]
 				}
 			} else {
-				return nil, 0, fmt.Errorf("'%v' has no valid weight", opts[i])
+				return weights, fmt.Errorf("'%v' has no valid weight", opts[i])
 			}
 		} else if len(split) == 1 {
-			weights[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
+			weights.options[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
 		} else {
-			return nil, 0, fmt.Errorf("either use weights for all options or none")
+			return weights, fmt.Errorf("either use weights for all options or none")
 		}
-		sum += weights[i]
+		weights.sum += weights.options[i]
 	}
-	return weights, sum, nil
+	return weights, nil
 }
 
 func (c *creator) ensureSymbolExists(name string) *symbols {
@@ -330,28 +332,13 @@ func (c *creator) Choose(rnd rand.Rand) Word {
 
 func (c *creator) choose(rnd rand.Rand, s *symbols) string {
 	if len(s.options) > 0 {
-		opt := pick(rnd.Float(s.weightSum), s.options)
+		opt := s.choose(rnd.Float(s.weights.sum))
 		var str strings.Builder
-		for _, s2 := range opt.chars {
+		for _, s2 := range opt {
 			str.WriteString(c.choose(rnd, s2))
 		}
 		return str.String()
 	} else {
 		return s.terminal
 	}
-}
-
-func pick(p float64, opts []sequence) sequence {
-	ws := make([]float64, len(opts))
-	for i := range opts {
-		ws[i] = opts[i].weight
-	}
-	sum := 0.0
-	for i := 0; i < len(opts)-1; i++ {
-		sum += opts[i].weight
-		if sum > p {
-			return opts[i]
-		}
-	}
-	return opts[len(opts)-1]
 }
