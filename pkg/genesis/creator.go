@@ -2,7 +2,6 @@ package genesis
 
 import (
 	"fmt"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -193,13 +192,12 @@ func (c *creator) addOptions(nonT *symbols, opts []string) error {
 	if err != nil {
 		return err
 	}
-	nonT.weights.sum = tmpWeights.sum
 
 	for i, rawopt := range opts {
-		sopts, sws := c.expandOption(rawopt, tmpWeights.options[i])
+		sopts, sws := c.expandOption(rawopt, tmpWeights[i])
 		for j, opt := range sopts {
 			s := []*symbols{}
-			nonT.weights.options = append(nonT.weights.options, sws[j])
+			nonT.weights = append(nonT.weights, sws[j])
 			var word strings.Builder
 			for _, char := range opt {
 				word.WriteRune(char)
@@ -241,42 +239,6 @@ func (c *creator) expandOption(opt string, weight float64) (opts []string, ws []
 	}
 
 	return opts, ws
-}
-
-func calcWeights(opts []string) (weights weight, err error) {
-	max := len(opts)
-	weights.options = make([]float64, max)
-
-	explicit := 0 // 0 = uninitialized, 1 = explicit weights, 2 = implicit
-	for i := 0; i < max; i++ {
-		split := strings.Split(opts[i], ":")
-		if explicit < 2 {
-			if len(split) == 1 {
-				if explicit == 1 {
-					return weights, fmt.Errorf("either use weights for all options or none")
-				} else {
-					explicit = 2
-					weights.options[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
-				}
-			} else if len(split) == 2 {
-				if w, err := strconv.ParseFloat(split[1], 64); err != nil {
-					return weights, fmt.Errorf("'%v' has no valid weight", opts[i])
-				} else {
-					explicit = 1
-					weights.options[i] = w
-					opts[i] = split[0]
-				}
-			} else {
-				return weights, fmt.Errorf("'%v' has no valid weight", opts[i])
-			}
-		} else if len(split) == 1 {
-			weights.options[i] = (math.Log(float64(max+1)) - math.Log(float64(i+1))) / float64(max)
-		} else {
-			return weights, fmt.Errorf("either use weights for all options or none")
-		}
-		weights.sum += weights.options[i]
-	}
-	return weights, nil
 }
 
 func (c *creator) ensureSymbolExists(name string) *symbols {
@@ -332,7 +294,7 @@ func (c *creator) Choose(rnd rand.Rand) Word {
 
 func (c *creator) choose(rnd rand.Rand, s *symbols) string {
 	if len(s.options) > 0 {
-		opt := s.choose(rnd.Float(s.weights.sum))
+		opt := s.choose(rnd.Float(1))
 		var str strings.Builder
 		for _, s2 := range opt {
 			str.WriteString(c.choose(rnd, s2))

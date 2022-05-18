@@ -1,25 +1,23 @@
 package genesis
 
-import "strings"
+import (
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
+)
 
 // A symbols is a either a non-terminal, which means it can be replaced by one or more other symbols
 // or a terminal, which is one or more characters that are final.
 // If it is a non-termial, options will have at least one sequence. Otherwise terminal is non-empty.
 type symbols struct {
 	options  []sequence
-	weights  weight
+	weights  weights
 	terminal string
 }
 
 // A sequence is a sequence of symbols.
 type sequence []*symbols
-
-// weight describes the relative likelihood of options to be chosen.
-// It is used in symbols.
-type weight struct {
-	options []float64
-	sum     float64
-}
 
 // n recursively calculates the number of options that can come from a symbol.
 // If the same sequence of characters can be obtained in different ways, those duplicates are not filtered.
@@ -67,14 +65,59 @@ func (s *symbols) get(i int) string {
 func (s *symbols) choose(p float64) sequence {
 	ws := make([]float64, len(s.options))
 	for i := range s.options {
-		ws[i] = s.weights.options[i]
+		ws[i] = s.weights[i]
 	}
 	sum := 0.0
 	for i := 0; i < len(s.options)-1; i++ {
-		sum += s.weights.options[i]
+		sum += s.weights[i]
 		if sum > p {
 			return s.options[i]
 		}
 	}
 	return s.options[len(s.options)-1]
+}
+
+// weight describes the relative likelihood of options to be chosen.
+// It is used in symbols. Weights have to be non-negative and add up to 1.
+type weights []float64
+
+func calcWeights(opts []string) (weights weights, err error) {
+	weights = make([]float64, len(opts))
+
+	explicit := 0 // 0 = uninitialized, 1 = explicit weights, 2 = implicit
+	sum := 0.0
+	for i := range opts {
+		split := strings.Split(opts[i], ":")
+		if explicit < 2 {
+			if len(split) == 1 {
+				if explicit == 1 {
+					return weights, fmt.Errorf("either use weights for all options or none")
+				} else {
+					explicit = 2
+					weights[i] = (math.Log(float64(len(opts)+1)) - math.Log(float64(i+1))) / float64(len(opts))
+				}
+			} else if len(split) == 2 {
+				if w, err := strconv.ParseFloat(split[1], 64); err != nil {
+					return weights, fmt.Errorf("'%v' has no valid weight", opts[i])
+				} else {
+					explicit = 1
+					weights[i] = w
+					opts[i] = split[0]
+				}
+			} else {
+				return weights, fmt.Errorf("'%v' has no valid weight", opts[i])
+			}
+		} else if len(split) == 1 {
+			weights[i] = (math.Log(float64(len(opts)+1)) - math.Log(float64(i+1))) / float64(len(opts))
+		} else {
+			return weights, fmt.Errorf("either use weights for all options or none")
+		}
+		sum += weights[i]
+	}
+
+	for i := range weights {
+		weights[i] /= sum
+	}
+
+	return weights, nil
 }
