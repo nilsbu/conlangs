@@ -137,7 +137,7 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"invalid weights 4",
-			"words: a:1 b:2:2",
+			"V = a:1 b:2:2\nwords:",
 			false, nil,
 		},
 		{
@@ -147,10 +147,25 @@ func TestCreatorGet(t *testing.T) {
 			[]cr.Word{"ba", "", "", "", "", "de", "bi", "", "di"},
 		},
 		{
-			"table filter 1",
+			"table filter 2",
 			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +",
 			true,
 			[]cr.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
+		},
+		{
+			"table filter false length",
+			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + + - +\nc - - -\nd - + +",
+			false, nil,
+		},
+		{
+			"table filter invalid with rejection",
+			"V=a e i\nC=b c d\nwords: CV\n%a e i\n( + - +\nc - - -\nd - + +",
+			false, nil,
+		},
+		{
+			"table filter invalid with filter",
+			"V=a e i\nC=b c d\nwords: CV\n%a e i\n( a - +\nc - - -\nd - + +",
+			false, nil,
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
