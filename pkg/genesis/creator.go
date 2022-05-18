@@ -38,21 +38,6 @@ type creator struct {
 	randomRate float64
 }
 
-// A symbols is a either a non-terminal, which means it can be replaced by one or more other symbols
-// or a terminal, which is one or more characters that are final.
-// If it is a non-termial, options will have at least one sequence. Otherwise terminal is non-empty.
-// TODO weight and weightSum should be united into one struct.
-type symbols struct {
-	options   []sequence
-	weightSum float64
-	terminal  string
-}
-
-type sequence struct {
-	chars  []*symbols
-	weight float64
-}
-
 // A filter is a rule by which a part of a word is replaced by something else.
 // It searches a string using a regular expression.
 type filter struct {
@@ -66,43 +51,6 @@ func (f *filter) apply(word Word) Word {
 		word = word[:idx[0]] + Word(f.new) + word[idx[1]:]
 	}
 	return word
-}
-
-func (s *symbols) n() int {
-	if len(s.options) == 0 {
-		return 1
-	} else {
-		n := 0
-		for _, opt := range s.options {
-			p := 1
-			for _, s2 := range opt.chars {
-				p *= s2.n()
-			}
-			n += p
-		}
-		return n
-	}
-}
-
-func (s *symbols) get(i int) string {
-	for _, opt := range s.options {
-		p := 1
-		for _, s2 := range opt.chars {
-			p *= s2.n()
-		}
-		if i < p {
-			var str strings.Builder
-			for _, s2 := range opt.chars {
-				j := i % s2.n()
-				i /= s2.n()
-				str.WriteString(s2.get(j))
-			}
-			return str.String()
-		} else {
-			i -= p
-		}
-	}
-	return s.terminal
 }
 
 func (c *creator) load(def []byte) error {
