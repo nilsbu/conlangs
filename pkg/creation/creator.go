@@ -2,7 +2,6 @@ package creation
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -19,146 +18,28 @@ type Creator interface {
 	Choose(rnd rand.Rand) Word
 }
 
-// A Word is a valid string of character in a language.
-type Word string
-
-// NewCreator creates a Creator according to a .defs file.
-// If the file is invalid, it will return an error.
-func NewCreator(def []byte) (Creator, error) {
-	c := &creator{symbols: map[string]*symbols{}, randomRate: stdRandomRate}
-	return c, c.load(def)
-}
-
 type creator struct {
-	symbols    map[string]*symbols
-	rejections []*regexp.Regexp
-	filters    []*filter
+	symbols map[string]*symbols
 	// randomRate is a number in range [0-1) that determines the likelihood of an optional symbol (marked by '?') to occur
 	randomRate float64
 }
 
-// A filter is a rule by which a part of a word is replaced by something else.
-// It searches a string using a regular expression.
-type filter struct {
-	regexp *regexp.Regexp
-	new    string
+func (c *creator) loadWords(line string) error {
+	return c.addOptions(c.ensureSymbolExists("#words"), strings.Fields(line[len("words:"):]))
 }
 
-func (f *filter) apply(word Word) Word {
-	idxs := f.regexp.FindAllStringIndex(string(word), 20)
-	for _, idx := range idxs {
-		word = word[:idx[0]] + Word(f.new) + word[idx[1]:]
+func (c *creator) loadNonTerminal(line string) error {
+	idx := strings.Index(line, "=")
+	pre := strings.Fields(line[:idx])
+
+	if len(pre) != 1 {
+		return fmt.Errorf("expect one non-terminal before '=' but got '%v'", line[:idx])
 	}
-	return word
-}
-
-func (c *creator) load(def []byte) error {
-	// TODO detect cycles
-	lines := strings.Split(string(def), "\n")
-	if err := c.findRate(lines); err != nil {
+	if err := c.addOptions(c.ensureSymbolExists(pre[0]), strings.Fields(line[idx+1:])); err != nil {
 		return err
 	}
 
-	tableHeads := []string{}
-
-	for i, line := range lines {
-		continueTable := false
-
-		switch {
-		case hasPrefix("words:", line):
-			if err := c.addOptions(c.ensureSymbolExists("#words"), strings.Fields(line[len("words:"):])); err != nil {
-				return err
-			}
-
-		case hasPrefix("reject:", line):
-			for _, rx := range strings.Fields(line[len("reject:"):]) {
-				if err := c.addRejection(rx); err != nil {
-					return err
-				}
-			}
-
-		case strings.Contains(line, "="): // TODO using strings.Contains and strings.Index isn't efficient
-			idx := strings.Index(line, "=")
-			pre := strings.Fields(line[:idx])
-
-			if len(pre) != 1 {
-				return fmt.Errorf("in line %v: expect one non-terminal before '=' but got '%v'", i, line[:idx])
-			}
-			if err := c.addOptions(c.ensureSymbolExists(pre[0]), strings.Fields(line[idx+1:])); err != nil {
-				return err
-			}
-
-		case hasPrefix("filter:", line):
-			for _, rule := range strings.Split(line[len("filter:"):], ";") {
-				if len(rule) == 0 {
-					continue
-				}
-				idx := strings.Index(rule, ">")
-				if idx == -1 {
-					return fmt.Errorf("rule '%v' doesn't contain '>'", rule)
-				}
-				pre, pos := strings.TrimSpace(rule[:idx]), strings.TrimSpace(rule[idx+1:])
-				if err := c.addFilter(pre, pos); err != nil {
-					return err
-				}
-			}
-		case hasPrefix("%", line):
-			continueTable = true
-			tableHeads = strings.Fields(line[1:])
-		case len(tableHeads) > 0:
-			continueTable = true
-
-			fields := strings.Fields(line)
-			if len(fields) != len(tableHeads)+1 {
-				return fmt.Errorf("table doesn't have correct length: columns = %v, but got %v", len(tableHeads), len(fields)-1)
-			} else {
-				for i, f := range fields[1:] {
-					switch f {
-					case "+":
-						continue
-					case "-":
-						if err := c.addRejection(fields[0] + tableHeads[i]); err != nil {
-							return err
-						}
-					default:
-						if err := c.addFilter(fields[0]+tableHeads[i], f); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-
-		if !continueTable {
-			tableHeads = []string{}
-		}
-	}
-
-	if _, ok := c.symbols["#words"]; !ok {
-		return fmt.Errorf("def doesn't contain 'words:'")
-	}
 	return nil
-}
-
-func (c *creator) addRejection(rx string) error {
-	if rej, err := regexp.Compile(rx); err != nil {
-		return err
-	} else {
-		c.rejections = append(c.rejections, rej)
-		return nil
-	}
-}
-
-func (c *creator) addFilter(pre, pos string) error {
-	if rej, err := regexp.Compile(pre); err != nil {
-		return err
-	} else {
-		c.filters = append(c.filters, &filter{
-			regexp: rej,
-			new:    pos,
-		})
-		return nil
-	}
 }
 
 func (c *creator) findRate(lines []string) (err error) {
@@ -172,14 +53,6 @@ func (c *creator) findRate(lines []string) (err error) {
 		}
 	}
 	return nil
-}
-
-func hasPrefix(pre, str string) bool {
-	if len(str) < len(pre) {
-		return false
-	} else {
-		return str[:len(pre)] == pre
-	}
 }
 
 func (c *creator) addOptions(nonT *symbols, opts []string) error {
@@ -252,44 +125,15 @@ func (c *creator) ensureSymbolExists(name string) *symbols {
 }
 
 func (c *creator) Get(i int) Word {
-	word := Word(c.symbols["#words"].get(i))
-	word = c.applyAllFilters(word)
-	found := false
-	for _, rx := range c.rejections {
-		if rx.MatchString(string(word)) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return word
-	} else {
-		return ""
-	}
-}
-
-func (c *creator) applyAllFilters(word Word) Word {
-	for _, filter := range c.filters {
-		word = filter.apply(word)
-	}
-	return word
+	return Word(c.symbols["#words"].get(i))
+	// return c.applyAllFilters(word)
 }
 
 func (c *creator) Choose(rnd rand.Rand) Word {
-	for { // TODO Break from infinite loop
-		word := Word(c.choose(rnd, c.symbols["#words"]))
-		word = c.applyAllFilters(word)
-		found := false
-		for _, rx := range c.rejections {
-			if rx.MatchString(string(word)) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return word
-		}
-	}
+	return Word(c.choose(rnd, c.symbols["#words"]))
+	// for { // TODO Break from infinite loop
+	// 	return c.applyAllFilters(word)
+	// }
 }
 
 func (c *creator) choose(rnd rand.Rand, s *symbols) string {

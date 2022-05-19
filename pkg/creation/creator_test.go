@@ -169,7 +169,7 @@ func TestCreatorGet(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			creator, err := cr.NewCreator([]byte(c.defs))
+			creator, validator, filters, err := cr.NewCreator([]byte(c.defs))
 			if c.ok && err != nil {
 				t.Error("expected no error but got:", err)
 			} else if !c.ok && err == nil {
@@ -177,6 +177,10 @@ func TestCreatorGet(t *testing.T) {
 			} else if c.ok {
 				for i, ex := range c.words {
 					ac := creator.Get(i)
+					ac = filters.Apply(ac)
+					if !validator.OK(ac) {
+						ac = ""
+					}
 					if ex != ac {
 						t.Errorf("word %v: expected '%v' but got '%v'", i, ex, ac)
 					}
@@ -261,11 +265,19 @@ func TestCreatorChoose(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			creator, err := cr.NewCreator([]byte(c.defs))
+			creator, validator, filters, err := cr.NewCreator([]byte(c.defs))
 			if err != nil {
 				t.Error("expected no error but got:", err)
 			} else {
-				word := creator.Choose(rand.Cycle(c.choices))
+				var word cr.Word
+				rnd := rand.Cycle(c.choices)
+				for {
+					word = creator.Choose(rnd)
+					word = filters.Apply(word)
+					if validator.OK(word) {
+						break
+					}
+				}
 				if c.word != word {
 					t.Errorf("expected '%v' but got '%v'", c.word, word)
 				}
