@@ -13,7 +13,7 @@ import (
 func main() {
 	if def, err := os.ReadFile("test.def"); err != nil {
 		fmt.Println(err)
-	} else if creator, validator, filters, err := creation.NewCreator(def); err != nil {
+	} else if creator, validator, filters, err := creation.ParseDefs(def); err != nil {
 		fmt.Println(err)
 	} else {
 		n, _ := strconv.Atoi(os.Args[1])

@@ -10,9 +10,11 @@ type Filter interface {
 	Apply(word Word) Word
 }
 
+// filters implements the Filter interface. It represents a series of regexp searches
+// that replace sections of a word.
 type filters []*filter
 
-func (fs *filters) loadFilter(line string) error {
+func (fs *filters) parseLine(line string) error {
 	for _, rule := range strings.Split(line[len("filter:"):], ";") {
 		if len(rule) == 0 {
 			continue
@@ -22,14 +24,14 @@ func (fs *filters) loadFilter(line string) error {
 			return fmt.Errorf("rule '%v' doesn't contain '>'", rule)
 		}
 		pre, pos := strings.TrimSpace(rule[:idx]), strings.TrimSpace(rule[idx+1:])
-		if err := fs.addFilter(pre, pos); err != nil {
+		if err := fs.add(pre, pos); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (fs *filters) addFilter(pre, pos string) error {
+func (fs *filters) add(pre, pos string) error {
 	if rej, err := regexp.Compile(pre); err != nil {
 		return err
 	} else {

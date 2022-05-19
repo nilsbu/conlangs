@@ -148,7 +148,7 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"table filter 2",
-			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +",
+			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +\n\n",
 			true,
 			[]cr.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
 		},
@@ -164,12 +164,12 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"table filter invalid with filter",
-			"V=a e i\nC=b c d\nwords: CV\n%a e i\n( a - +\nc - - -\nd - + +",
+			"V=a e i\nC=b c d\n%a e i\n( a - +\nc - - -\nd - + +\nwords: CV",
 			false, nil,
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			creator, validator, filters, err := cr.NewCreator([]byte(c.defs))
+			creator, validator, filters, err := cr.ParseDefs([]byte(c.defs))
 			if c.ok && err != nil {
 				t.Error("expected no error but got:", err)
 			} else if !c.ok && err == nil {
@@ -265,7 +265,7 @@ func TestCreatorChoose(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			creator, validator, filters, err := cr.NewCreator([]byte(c.defs))
+			creator, validator, filters, err := cr.ParseDefs([]byte(c.defs))
 			if err != nil {
 				t.Error("expected no error but got:", err)
 			} else {

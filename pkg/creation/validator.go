@@ -5,16 +5,16 @@ import (
 	"strings"
 )
 
+// A Validator evaluates a Word and decides if it is valid in a language.
 type Validator interface {
 	OK(word Word) bool
 }
 
-type validator struct {
-	rejections []*regexp.Regexp
-}
+// rejections evaluates Words by parsing it for a series of regexes that mark invalid words.
+type rejections []*regexp.Regexp
 
-func (v *validator) OK(word Word) bool {
-	for _, rx := range v.rejections {
+func (v *rejections) OK(word Word) bool {
+	for _, rx := range *v {
 		if rx.MatchString(string(word)) {
 			return false
 		}
@@ -22,20 +22,23 @@ func (v *validator) OK(word Word) bool {
 	return true
 }
 
-func (v *validator) loadReject(line string) error {
+// parseLine parses a line for definitions of rejections
+func (v *rejections) parseLine(line string) error {
 	for _, rx := range strings.Fields(line[len("reject:"):]) {
-		if err := v.addRejection(rx); err != nil {
+		if rej, err := regexp.Compile(rx); err != nil {
 			return err
+		} else {
+			*v = append(*v, rej)
 		}
 	}
 	return nil
 }
 
-func (v *validator) addRejection(rx string) error {
+func (v *rejections) add(rx string) error {
 	if rej, err := regexp.Compile(rx); err != nil {
 		return err
 	} else {
-		v.rejections = append(v.rejections, rej)
+		*v = append(*v, rej)
 		return nil
 	}
 }

@@ -8,21 +8,23 @@ import (
 // A Word is a valid string of character in a language.
 type Word string
 
-// NewCreator creates a Creator according to a .defs file.
+// ParseDefs creates a Creator, Validator and Filter according to a .defs file.
 // If the file is invalid, it will return an error.
-func NewCreator(def []byte) (Creator, Validator, Filter, error) {
+func ParseDefs(def []byte) (Creator, Validator, Filter, error) {
 	i := &ini{
 		c:  &creator{symbols: map[string]*symbols{}, randomRate: stdRandomRate},
-		v:  &validator{},
+		v:  &rejections{},
 		fs: &filters{},
 	}
 
 	return i.c, i.v, i.fs, i.load(def)
 }
 
+// ini is a struct containing the objects created by ParseDefs.
+// It's purpose is to allow splitting the parsing process without passing around lots of variables.
 type ini struct {
 	c  *creator
-	v  *validator
+	v  *rejections
 	fs *filters
 }
 
@@ -45,7 +47,7 @@ func (init *ini) load(def []byte) error {
 			}
 
 		case hasPrefix("reject:", line):
-			if err := init.v.loadReject(line); err != nil {
+			if err := init.v.parseLine(line); err != nil {
 				return err
 			}
 
@@ -55,7 +57,7 @@ func (init *ini) load(def []byte) error {
 			}
 
 		case hasPrefix("filter:", line):
-			if err := init.fs.loadFilter(line); err != nil {
+			if err := init.fs.parseLine(line); err != nil {
 				return err
 			}
 
@@ -106,11 +108,11 @@ func (init *ini) loadTable(lines []string) error {
 				case "+":
 					continue
 				case "-":
-					if err := init.v.addRejection(fields[0] + tableHeads[i]); err != nil {
+					if err := init.v.add(fields[0] + tableHeads[i]); err != nil {
 						return err
 					}
 				default:
-					if err := init.fs.addFilter(fields[0]+tableHeads[i], f); err != nil {
+					if err := init.fs.add(fields[0]+tableHeads[i], f); err != nil {
 						return err
 					}
 				}
