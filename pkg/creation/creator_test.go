@@ -160,7 +160,7 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"table filter 3 (words after table)",
-			"V=a e i\nC=b c d\n%a e i\nb + - +\nc aa - -\nd - + +\nwords: CV",
+			"V=a e i\nC=b c d\n%a e i\nb + - +\nc aa - -\nd - + +\n\nwords: CV",
 			true,
 			[]cr.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
 		},

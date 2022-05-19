@@ -42,19 +42,14 @@ func (init *ini) load(def []byte) error {
 		body      func(line string) error
 	}
 
-	prefix := func(prefix string) func(string) bool {
-		return func(line string) bool {
-			return hasPrefix(prefix, line)
-		}
-	}
+	td := &tableData{}
+
 	lps := []lineparse{
-		{prefix("words:"), init.c.loadWords},
-		{prefix("reject:"), init.v.parseLine},
-		{prefix("filter:"), init.fs.parseLine},
-		{
-			func(line string) bool { return strings.Contains(line, "=") },
-			init.c.loadNonTerminal,
-		},
+		{td.isValid, td.acceptLine},
+		{hasPrefix("words:"), init.c.loadWords},
+		{hasPrefix("reject:"), init.v.parseLine},
+		{hasPrefix("filter:"), init.fs.parseLine},
+		{func(line string) bool { return strings.Contains(line, "=") }, init.c.loadNonTerminal},
 	}
 
 	tableStart := -1
@@ -62,39 +57,21 @@ func (init *ini) load(def []byte) error {
 		// discard comments
 		line = strings.Split(line, "#")[0]
 
-		executed := false
 		for _, lp := range lps {
 			if lp.condition(line) {
 				if err := lp.body(line); err != nil {
 					return errors.Wrapf(err, "in line %v", i)
 				} else {
-					executed = true
 					break
 				}
 			}
 		}
-
-		// parsing tables requires some extra work since they're multi-line
-		continueTable := false
-		if hasPrefix("%", line) {
-			continueTable = true
-			tableStart = i
-		} else if !executed && tableStart >= 0 && len(line) > 0 {
-			continueTable = true
-		}
-
-		if !continueTable && tableStart >= 0 {
-			if err := init.loadTable(lines[tableStart:i]); err != nil {
-				return errors.Wrapf(err, "in lines %v-%v", tableStart, i-1)
-			}
-			tableStart = -1
+		if err := td.newline(init); err != nil {
+			return errors.Wrapf(err, "in lines %v-%v", tableStart, i-1)
 		}
 	}
-
-	if tableStart >= 0 {
-		if err := init.loadTable(lines[tableStart:]); err != nil {
-			return errors.Wrapf(err, "in lines %v-%v", tableStart, len(lines)-1)
-		}
+	if err := td.newline(init); err != nil {
+		return errors.Wrapf(err, "in line %v", len(lines)-1)
 	}
 
 	if _, ok := init.c.symbols["#words"]; !ok {
@@ -103,12 +80,43 @@ func (init *ini) load(def []byte) error {
 	return nil
 }
 
-func hasPrefix(pre, str string) bool {
-	if len(str) < len(pre) {
-		return false
-	} else {
-		return str[:len(pre)] == pre
+func hasPrefix(prefix string) func(string) bool {
+	return func(line string) bool {
+		if len(line) < len(prefix) {
+			return false
+		} else {
+			return line[:len(prefix)] == prefix
+		}
 	}
+}
+
+type tableData struct {
+	lines    []string
+	columns  int
+	newLines int
+}
+
+func (td *tableData) acceptLine(line string) error {
+	td.lines = append(td.lines, line)
+	td.columns = len(strings.Fields(line[1:]))
+	td.newLines = 0
+	return nil
+}
+
+func (td *tableData) newline(init *ini) error {
+	td.newLines++
+	if td.newLines > 1 && len(td.lines) > 0 {
+		if err := init.loadTable(td.lines); err != nil {
+			return err
+		}
+		td.lines = []string{}
+		td.columns = 0
+	}
+	return nil
+}
+
+func (td *tableData) isValid(line string) bool {
+	return hasPrefix("%")(line) || len(td.lines) > 0 && len(line) > 0
 }
 
 func (init *ini) loadTable(lines []string) error {

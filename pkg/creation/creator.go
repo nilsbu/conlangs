@@ -44,7 +44,7 @@ func (c *creator) loadNonTerminal(line string) error {
 
 func (c *creator) findRate(lines []string) (err error) {
 	for _, line := range lines {
-		if hasPrefix("random-rate:", line) {
+		if hasPrefix("random-rate:")(line) {
 			c.randomRate, err = strconv.ParseFloat(strings.TrimSpace(line[len("random-rate:"):]), 64)
 			if c.randomRate < 0 || c.randomRate > 1 {
 				err = fmt.Errorf("random-rate must be in range [0, 1] but is %v", c.randomRate)
