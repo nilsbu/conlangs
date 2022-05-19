@@ -19,8 +19,9 @@ func main() {
 		n, _ := strconv.Atoi(os.Args[1])
 		rnd := rand.Natural(time.Now().UnixNano())
 		for i := 0; i < n; {
-			if validator.OK(filters.Apply(creator.Choose(rnd))) {
-				fmt.Print(creator.Choose(rnd), " ")
+			word := filters.Apply(creator.Choose(rnd))
+			if validator.OK(word) {
+				fmt.Print(word, " ")
 				i++
 			}
 		}

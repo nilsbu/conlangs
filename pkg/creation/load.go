@@ -19,7 +19,7 @@ func ParseDefs(def []byte) (Creator, Validator, Filter, error) {
 		fs: &filters{},
 	}
 
-	return i.c, i.v, i.fs, i.load(def)
+	return i.c, i.v, i.fs, i.parse(def)
 }
 
 // ini is a struct containing the objects created by ParseDefs.
@@ -30,117 +30,120 @@ type ini struct {
 	fs *filters
 }
 
-func (init *ini) load(def []byte) error {
-
+func (init *ini) parse(def []byte) error {
 	lines := strings.Split(string(def), "\n")
+
+	// random-rate needs to be processed first, since it gets used in the creation of non-terminals
+	// TODO Should random-rate be changeable, making different rates for different non-terminals possible?
 	if err := init.c.findRate(lines); err != nil {
 		return err
 	}
 
-	type lineparse struct {
-		condition func(line string) bool
-		body      func(line string) error
+	// bulk of the processing happens here
+	if err := init.parseLines(lines); err != nil {
+		return err
 	}
 
-	td := &tableData{}
-
-	lps := []lineparse{
-		{td.isValid, td.acceptLine},
-		{hasPrefix("words:"), init.c.loadWords},
-		{hasPrefix("reject:"), init.v.parseLine},
-		{hasPrefix("filter:"), init.fs.parseLine},
-		{func(line string) bool { return strings.Contains(line, "=") }, init.c.loadNonTerminal},
-	}
-
-	tableStart := -1
-	for i, line := range lines {
-		// discard comments
-		line = strings.Split(line, "#")[0]
-
-		for _, lp := range lps {
-			if lp.condition(line) {
-				if err := lp.body(line); err != nil {
-					return errors.Wrapf(err, "in line %v", i)
-				} else {
-					break
-				}
-			}
-		}
-		if err := td.newline(init); err != nil {
-			return errors.Wrapf(err, "in lines %v-%v", tableStart, i-1)
-		}
-	}
-	if err := td.newline(init); err != nil {
-		return errors.Wrapf(err, "in line %v", len(lines)-1)
-	}
-
+	// "words:" command is essential since it defines the root
 	if _, ok := init.c.symbols["#words"]; !ok {
 		return fmt.Errorf("def doesn't contain 'words:'")
 	}
 	return nil
 }
 
-func hasPrefix(prefix string) func(string) bool {
-	return func(line string) bool {
-		if len(line) < len(prefix) {
-			return false
-		} else {
-			return line[:len(prefix)] == prefix
+func (init *ini) parseLines(lines []string) error {
+	// processing of tables is slightly more complex than other commands since it's multi-line,
+	// tableInit contains that
+	ti := &tableInit{init: init}
+
+	processRules := []struct {
+		// condition identifies lines that belong to a given rule
+		condition func(line string) bool
+		// rule executes the command
+		rule func(line string) error
+	}{
+		{ti.isValid, ti.acceptLine},
+		{func(line string) bool { return hasPrefix("words:", line) }, init.c.loadWords},
+		{func(line string) bool { return hasPrefix("reject:", line) }, init.v.parseLine},
+		{func(line string) bool { return hasPrefix("filter:", line) }, init.fs.parseLine},
+		{func(line string) bool { return strings.Contains(line, "=") }, init.c.loadNonTerminal},
+	}
+
+	for i, line := range lines {
+		// discard comments
+		line = strings.Split(line, "#")[0]
+
+		for _, lp := range processRules {
+			if lp.condition(line) {
+				if err := lp.rule(line); err != nil {
+					return errors.Wrapf(err, "in line %v (\"%v\")", i+1, line)
+				} else {
+					break
+				}
+			}
 		}
+		ti.newline()
+	}
+
+	return nil
+}
+
+func hasPrefix(prefix string, line string) bool {
+	if len(line) < len(prefix) {
+		return false
+	} else {
+		return line[:len(prefix)] == prefix
 	}
 }
 
-type tableData struct {
-	lines    []string
-	columns  int
+type tableInit struct {
+	init     *ini
+	head     []string
 	newLines int
 }
 
-func (td *tableData) acceptLine(line string) error {
-	td.lines = append(td.lines, line)
-	td.columns = len(strings.Fields(line[1:]))
-	td.newLines = 0
-	return nil
+func (ti *tableInit) isValid(line string) bool {
+	return hasPrefix("%", line) || (len(ti.head) > 0 && len(line) > 0)
 }
 
-func (td *tableData) newline(init *ini) error {
-	td.newLines++
-	if td.newLines > 1 && len(td.lines) > 0 {
-		if err := init.loadTable(td.lines); err != nil {
-			return err
-		}
-		td.lines = []string{}
-		td.columns = 0
-	}
-	return nil
-}
+func (ti *tableInit) acceptLine(line string) error {
+	ti.newLines = 0
 
-func (td *tableData) isValid(line string) bool {
-	return hasPrefix("%")(line) || len(td.lines) > 0 && len(line) > 0
-}
+	if len(ti.head) == 0 {
+		ti.head = strings.Fields(line[1:])
+		return nil
+	} else {
+		head := ti.head
 
-func (init *ini) loadTable(lines []string) error {
-	tableHeads := strings.Fields(lines[0][1:])
-	for _, line := range lines[1:] {
 		fields := strings.Fields(line)
-		if len(fields) != len(tableHeads)+1 {
-			return fmt.Errorf("table doesn't have correct length: columns = %v, but got %v", len(tableHeads), len(fields)-1)
+		if len(fields) != len(head)+1 {
+			return fmt.Errorf("table doesn't have correct length: columns = %v, but got %v", len(head), len(fields)-1)
 		} else {
 			for i, f := range fields[1:] {
 				switch f {
 				case "+":
+					// combination permitted, nothing to do
 					continue
 				case "-":
-					if err := init.v.add(fields[0] + tableHeads[i]); err != nil {
+					// combination forbidden, add to validator
+					if err := ti.init.v.add(fields[0] + head[i]); err != nil {
 						return err
 					}
 				default:
-					if err := init.fs.add(fields[0]+tableHeads[i], f); err != nil {
+					// add filter in more complex cases
+					if err := ti.init.fs.add(fields[0]+head[i], f); err != nil {
 						return err
 					}
 				}
 			}
+			return nil
 		}
 	}
-	return nil
+}
+
+func (ti *tableInit) newline() {
+	ti.newLines++
+	if ti.newLines == 2 {
+		ti.head = []string{}
+	}
 }
