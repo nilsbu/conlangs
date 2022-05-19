@@ -7,6 +7,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// stdRandomRate is the rate at which optional symbols are chosen in case random-rate isn't set.
+const stdRandomRate = 0.1
+
 // A Word is a valid string of character in a language.
 type Word string
 
@@ -63,10 +66,10 @@ func (init *ini) parseLines(lines []string) error {
 		rule func(line string) error
 	}{
 		{ti.isValid, ti.acceptLine},
-		{func(line string) bool { return hasPrefix("words:", line) }, init.c.loadWords},
+		{func(line string) bool { return hasPrefix("words:", line) }, init.c.parseWords},
 		{func(line string) bool { return hasPrefix("reject:", line) }, init.v.parseLine},
 		{func(line string) bool { return hasPrefix("filter:", line) }, init.fs.parseLine},
-		{func(line string) bool { return strings.Contains(line, "=") }, init.c.loadNonTerminal},
+		{func(line string) bool { return strings.Contains(line, "=") }, init.c.parseNonTerminal},
 	}
 
 	for i, line := range lines {

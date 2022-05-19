@@ -81,6 +81,7 @@ func (s *symbols) choose(p float64) sequence {
 // It is used in symbols. Weights have to be non-negative and add up to 1.
 type weights []float64
 
+// TODO describe algorithm
 func calcWeights(opts []string) (weights weights, err error) {
 	weights = make([]float64, len(opts))
 

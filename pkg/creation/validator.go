@@ -24,7 +24,7 @@ func (v *rejections) OK(word Word) bool {
 
 // parseLine parses a line for definitions of rejections
 func (v *rejections) parseLine(line string) error {
-	for _, rx := range strings.Fields(line[len("reject:"):]) {
+	for _, rx := range strings.Fields(removeUntil(line, ":")) {
 		if rej, err := regexp.Compile(rx); err != nil {
 			return err
 		} else {

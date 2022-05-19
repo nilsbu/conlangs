@@ -8,13 +8,12 @@ import (
 	"github.com/nilsbu/conlangs/pkg/rand"
 )
 
-// stdRandomRate is the rate at which optional symbols are chosen in case random-rate isn't set.
-const stdRandomRate = 0.1
-
+// A Creator is an object that creates random words in a language.
+// The words are accessible in two ways:
+// Get(i) returns the i-th word in the language
+// Choose(rnd) returns a random word
 type Creator interface {
-	// Get returns the ith word of the language.
 	Get(i int) Word
-	// Choose returns a random word from the language.
 	Choose(rnd rand.Rand) Word
 }
 
@@ -24,11 +23,15 @@ type creator struct {
 	randomRate float64
 }
 
-func (c *creator) loadWords(line string) error {
-	return c.addOptions(c.ensureSymbolExists("#words"), strings.Fields(line[len("words:"):]))
+func (c *creator) parseWords(line string) error {
+	return c.addOptions(c.ensureSymbolExists("#words"), strings.Fields(removeUntil(line, ":")))
 }
 
-func (c *creator) loadNonTerminal(line string) error {
+func removeUntil(line, f string) string {
+	return line[strings.Index(line, f)+1:]
+}
+
+func (c *creator) parseNonTerminal(line string) error {
 	idx := strings.Index(line, "=")
 	pre := strings.Fields(line[:idx])
 
@@ -45,11 +48,14 @@ func (c *creator) loadNonTerminal(line string) error {
 func (c *creator) findRate(lines []string) (err error) {
 	for _, line := range lines {
 		if hasPrefix("random-rate:", line) {
-			c.randomRate, err = strconv.ParseFloat(strings.TrimSpace(line[len("random-rate:"):]), 64)
-			if c.randomRate < 0 || c.randomRate > 1 {
-				err = fmt.Errorf("random-rate must be in range [0, 1] but is %v", c.randomRate)
+			if c.randomRate, err = strconv.ParseFloat(strings.TrimSpace(removeUntil(line, ":")), 64); err != nil {
+				return err
+			} else {
+				c.randomRate /= 100
+				if c.randomRate < 0 || c.randomRate > 1 {
+					return fmt.Errorf("random-rate must be in range [0, 100] but is %v", c.randomRate)
+				}
 			}
-			return
 		}
 	}
 	return nil
@@ -126,14 +132,10 @@ func (c *creator) ensureSymbolExists(name string) *symbols {
 
 func (c *creator) Get(i int) Word {
 	return Word(c.symbols["#words"].get(i))
-	// return c.applyAllFilters(word)
 }
 
 func (c *creator) Choose(rnd rand.Rand) Word {
 	return Word(c.choose(rnd, c.symbols["#words"]))
-	// for { // TODO Break from infinite loop
-	// 	return c.applyAllFilters(word)
-	// }
 }
 
 func (c *creator) choose(rnd rand.Rand, s *symbols) string {

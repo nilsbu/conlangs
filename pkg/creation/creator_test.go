@@ -55,7 +55,7 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"with two non-terminals",
-			"letters: a e b c\nC = b c\nV = a e\nwords: CV",
+			"letters: a e b c\nC = b c\nV = a e\nwords:CV",
 			true,
 			[]cr.Word{"ba", "ca", "be", "ce"},
 		},
@@ -122,8 +122,13 @@ func TestCreatorGet(t *testing.T) {
 			[]cr.Word{"ba", "ca", "be", "ce", "bab", "cab", "beb", "ceb", "bac", "cac", "bec", "cec"},
 		},
 		{
+			"random-rate not a number",
+			"C = b c\nV=a e\nwords: CVC?\nrandom-rate:x",
+			false, nil,
+		},
+		{
 			"broken random-rate",
-			"C = b c\nV=a e\nwords: CVC?\nrandom-rate:10", // > 1 not permissible
+			"C = b c\nV=a e\nwords: CVC?\nrandom-rate:1000", // > 1000% not permissible
 			false, nil,
 		},
 		{
@@ -265,7 +270,13 @@ func TestCreatorChoose(t *testing.T) {
 		},
 		{
 			"weight of ? with .5",
-			"words: a?b\nrandom-rate:.6",
+			"words: a?b\nrandom-rate:60",
+			[]float64{.5},
+			"b",
+		},
+		{
+			"overwrite random-rate, second is taken",
+			"words: a?b\nrandom-rate:0\nrandom-rate:60",
 			[]float64{.5},
 			"b",
 		},

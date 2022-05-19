@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// A Filter makes systematic changes to words.
 type Filter interface {
 	Apply(word Word) Word
 }
@@ -15,7 +16,7 @@ type Filter interface {
 type filters []*filter
 
 func (fs *filters) parseLine(line string) error {
-	for _, rule := range strings.Split(line[len("filter:"):], ";") {
+	for _, rule := range strings.Split(removeUntil(line, ":"), ";") {
 		if len(rule) == 0 {
 			continue
 		}
