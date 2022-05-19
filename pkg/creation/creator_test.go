@@ -26,6 +26,12 @@ func TestCreatorGet(t *testing.T) {
 			[]cr.Word{"bas"},
 		},
 		{
+			"comment",
+			"letters: a b s\nwords: bas # I'm a comment",
+			true,
+			[]cr.Word{"bas"},
+		},
+		{
 			"single word",
 			"letters: a b s\nwords: bas",
 			true,
@@ -148,7 +154,13 @@ func TestCreatorGet(t *testing.T) {
 		},
 		{
 			"table filter 2",
-			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +\n\n",
+			"V=a e i\nC=b c d\nwords: CV\n%a e i\nb + - +\nc aa - -\nd - + +\n# just a comment ...\n",
+			true,
+			[]cr.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
+		},
+		{
+			"table filter 3 (words after table)",
+			"V=a e i\nC=b c d\n%a e i\nb + - +\nc aa - -\nd - + +\nwords: CV",
 			true,
 			[]cr.Word{"ba", "aa", "", "", "", "de", "bi", "", "di"},
 		},

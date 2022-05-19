@@ -3,6 +3,8 @@ package creation
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // A Word is a valid string of character in a language.
@@ -35,42 +37,55 @@ func (init *ini) load(def []byte) error {
 		return err
 	}
 
+	type lineparse struct {
+		condition func(line string) bool
+		body      func(line string) error
+	}
+
+	prefix := func(prefix string) func(string) bool {
+		return func(line string) bool {
+			return hasPrefix(prefix, line)
+		}
+	}
+	lps := []lineparse{
+		{prefix("words:"), init.c.loadWords},
+		{prefix("reject:"), init.v.parseLine},
+		{prefix("filter:"), init.fs.parseLine},
+		{
+			func(line string) bool { return strings.Contains(line, "=") },
+			init.c.loadNonTerminal,
+		},
+	}
+
 	tableStart := -1
-
 	for i, line := range lines {
+		// discard comments
+		line = strings.Split(line, "#")[0]
+
+		executed := false
+		for _, lp := range lps {
+			if lp.condition(line) {
+				if err := lp.body(line); err != nil {
+					return errors.Wrapf(err, "in line %v", i)
+				} else {
+					executed = true
+					break
+				}
+			}
+		}
+
+		// parsing tables requires some extra work since they're multi-line
 		continueTable := false
-
-		switch {
-		case hasPrefix("words:", line):
-			if err := init.c.loadWords(line); err != nil {
-				return err
-			}
-
-		case hasPrefix("reject:", line):
-			if err := init.v.parseLine(line); err != nil {
-				return err
-			}
-
-		case strings.Contains(line, "="): // TODO using strings.Contains and strings.Index isn't efficient
-			if err := init.c.loadNonTerminal(line); err != nil {
-				return err
-			}
-
-		case hasPrefix("filter:", line):
-			if err := init.fs.parseLine(line); err != nil {
-				return err
-			}
-
-		case hasPrefix("%", line):
+		if hasPrefix("%", line) {
 			continueTable = true
 			tableStart = i
-		case tableStart >= 0 && len(line) > 0:
+		} else if !executed && tableStart >= 0 && len(line) > 0 {
 			continueTable = true
 		}
 
 		if !continueTable && tableStart >= 0 {
 			if err := init.loadTable(lines[tableStart:i]); err != nil {
-				return err
+				return errors.Wrapf(err, "in lines %v-%v", tableStart, i-1)
 			}
 			tableStart = -1
 		}
@@ -78,7 +93,7 @@ func (init *ini) load(def []byte) error {
 
 	if tableStart >= 0 {
 		if err := init.loadTable(lines[tableStart:]); err != nil {
-			return err
+			return errors.Wrapf(err, "in lines %v-%v", tableStart, len(lines)-1)
 		}
 	}
 
